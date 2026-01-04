@@ -1,0 +1,121 @@
+{
+  "$schema": "../../schemas/sources.schema.json",
+  "database": "postgresql",
+  "baseUrl": "https://repo1.maven.org/maven2/io/zonky/test/postgres",
+  "versions": {
+    "18.1.0": {
+      "linux-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-amd64/18.1.0/embedded-postgres-binaries-linux-amd64-18.1.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "linux-arm64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-arm64v8/18.1.0/embedded-postgres-binaries-linux-arm64v8-18.1.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "darwin-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/18.1.0/embedded-postgres-binaries-darwin-amd64-18.1.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "darwin-arm64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-arm64v8/18.1.0/embedded-postgres-binaries-darwin-arm64v8-18.1.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "win32-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/18.1.0/embedded-postgres-binaries-windows-amd64-18.1.0.jar",
+        "format": "jar",
+        "sha256": null
+      }
+    },
+    "17.7.0": {
+      "linux-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-amd64/17.7.0/embedded-postgres-binaries-linux-amd64-17.7.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "linux-arm64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-arm64v8/17.7.0/embedded-postgres-binaries-linux-arm64v8-17.7.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "darwin-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/17.7.0/embedded-postgres-binaries-darwin-amd64-17.7.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "darwin-arm64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-arm64v8/17.7.0/embedded-postgres-binaries-darwin-arm64v8-17.7.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "win32-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/17.7.0/embedded-postgres-binaries-windows-amd64-17.7.0.jar",
+        "format": "jar",
+        "sha256": null
+      }
+    },
+    "16.11.0": {
+      "linux-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-amd64/16.11.0/embedded-postgres-binaries-linux-amd64-16.11.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "linux-arm64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-arm64v8/16.11.0/embedded-postgres-binaries-linux-arm64v8-16.11.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "darwin-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/16.11.0/embedded-postgres-binaries-darwin-amd64-16.11.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "darwin-arm64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-arm64v8/16.11.0/embedded-postgres-binaries-darwin-arm64v8-16.11.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "win32-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/16.11.0/embedded-postgres-binaries-windows-amd64-16.11.0.jar",
+        "format": "jar",
+        "sha256": null
+      }
+    },
+    "15.15.0": {
+      "linux-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-amd64/15.15.0/embedded-postgres-binaries-linux-amd64-15.15.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "linux-arm64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-linux-arm64v8/15.15.0/embedded-postgres-binaries-linux-arm64v8-15.15.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "darwin-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/15.15.0/embedded-postgres-binaries-darwin-amd64-15.15.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "darwin-arm64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-arm64v8/15.15.0/embedded-postgres-binaries-darwin-arm64v8-15.15.0.jar",
+        "format": "jar",
+        "sha256": null
+      },
+      "win32-x64": {
+        "url": "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/15.15.0/embedded-postgres-binaries-windows-amd64-15.15.0.jar",
+        "format": "jar",
+        "sha256": null
+      }
+    }
+  },
+  "notes": {
+    "source": "Binaries from zonky.io embedded-postgres-binaries project (Maven Central)",
+    "format": "JAR files containing .txz archives of PostgreSQL binaries",
+    "sha256": "Set to null until we verify downloads and capture checksums",
+    "repository": "https://github.com/zonkyio/embedded-postgres-binaries"
+  }
+}

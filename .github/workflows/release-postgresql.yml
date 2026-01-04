@@ -1,0 +1,181 @@
+name: Release PostgreSQL
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'PostgreSQL version'
+        required: true
+        default: '17.7.0'
+        type: choice
+        options:
+          - '18.1.0'
+          - '17.7.0'
+          - '16.11.0'
+          - '15.15.0'
+      platforms:
+        description: 'Platforms'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'linux-x64'
+          - 'linux-arm64'
+          - 'darwin-x64'
+          - 'darwin-arm64'
+          - 'win32-x64'
+
+# Prevent concurrent runs that could conflict when updating releases.json
+concurrency:
+  group: release-postgresql
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_names: ${{ steps.build.outputs.artifact_names }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download and repackage PostgreSQL
+        id: build
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          PLATFORMS="${{ github.event.inputs.platforms }}"
+
+          if [ "$PLATFORMS" = "all" ]; then
+            pnpm download:postgresql -- --version "$VERSION" --all-platforms --output ./dist
+          else
+            # Convert comma-separated to multiple --platform flags
+            for platform in $(echo "$PLATFORMS" | tr ',' ' '); do
+              pnpm download:postgresql -- --version "$VERSION" --platform "$platform" --output ./dist
+            done
+          fi
+
+          # List created artifacts
+          ls -la ./dist/
+
+          # Create artifact names output
+          ARTIFACTS=$(ls ./dist/*.tar.gz ./dist/*.zip 2>/dev/null | xargs -n1 basename | tr '\n' ',' | sed 's/,$//')
+          echo "artifact_names=$ARTIFACTS" >> $GITHUB_OUTPUT
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz *.zip 2>/dev/null > checksums.txt || sha256sum *.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgresql-${{ github.event.inputs.version }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: postgresql-${{ github.event.inputs.version }}
+          path: ./release-assets
+
+      - name: List release assets
+        run: ls -la ./release-assets/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: postgresql-${{ github.event.inputs.version }}
+          name: PostgreSQL ${{ github.event.inputs.version }}
+          body: |
+            ## PostgreSQL ${{ github.event.inputs.version }}
+
+            PostgreSQL binaries from [zonky.io embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries), repackaged for hostdb.
+
+            ### Platforms
+            - `linux-x64` - Linux x86_64
+            - `linux-arm64` - Linux ARM64
+            - `darwin-x64` - macOS x86_64
+            - `darwin-arm64` - macOS Apple Silicon
+            - `win32-x64` - Windows x64
+
+            ### Usage
+            ```bash
+            # Download URL pattern
+            https://github.com/${{ github.repository }}/releases/download/postgresql-${{ github.event.inputs.version }}/postgresql-${{ github.event.inputs.version }}-<platform>.tar.gz
+            ```
+
+            ### Checksums
+            See `checksums.txt` for SHA256 checksums.
+
+            ### Source
+            Binaries from [zonky.io embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries) (Maven Central)
+          files: |
+            release-assets/*.tar.gz
+            release-assets/*.zip
+            release-assets/checksums.txt
+          fail_on_unmatched_files: false
+
+  update-manifest:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Update releases.json
+        run: |
+          pnpm tsx scripts/update-releases.ts \
+            --database postgresql \
+            --version "${{ github.event.inputs.version }}" \
+            --tag "postgresql-${{ github.event.inputs.version }}"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add releases.json
+          git diff --staged --quiet || git commit -m "chore: update releases.json for postgresql-${{ github.event.inputs.version }}"
+          git push

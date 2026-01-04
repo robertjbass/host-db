@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "author": "Bob Bass",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/robertjbass/hostdb.git"
@@ -13,6 +13,7 @@
   "scripts": {
     "dbs": "tsx scripts/list-databases.ts",
     "download:mysql": "tsx builds/mysql/download.ts",
+    "download:postgresql": "tsx builds/postgresql/download.ts",
     "update:releases": "tsx scripts/update-releases.ts",
     "format": "prettier --write .",
     "lint": "tsc --noEmit && eslint ."

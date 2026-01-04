@@ -47,16 +47,20 @@ hostdb/
 │   ├── list-databases.ts   # Database listing utility (pnpm dbs)
 │   └── update-releases.ts  # Updates releases.json after GH Release
 ├── builds/                 # Download/build configurations
-│   └── mysql/
-│       ├── download.ts     # Downloads official binaries
-│       ├── sources.json    # Version → URL mappings
-│       ├── Dockerfile      # Fallback: build from source
-│       ├── build-local.sh  # Fallback: local Docker build
-│       └── README.md
+│   ├── mysql/
+│   │   ├── download.ts     # Downloads official binaries
+│   │   ├── sources.json    # Version → URL mappings
+│   │   ├── Dockerfile      # Fallback: build from source
+│   │   ├── build-local.sh  # Fallback: local Docker build
+│   │   └── README.md
+│   └── postgresql/
+│       ├── download.ts     # Downloads from zonky.io (Maven Central)
+│       └── sources.json    # Version → URL mappings
 ├── cli/                    # TUI tool for downloading (Phase 4 - not yet created)
 └── .github/workflows/
-    ├── release-mysql.yml   # Creates GitHub Releases for MySQL
-    └── version-check.yml   # PR version check (for future CLI package)
+    ├── release-mysql.yml       # Creates GitHub Releases for MySQL
+    ├── release-postgresql.yml  # Creates GitHub Releases for PostgreSQL
+    └── version-check.yml       # PR version check (for future CLI package)
 ```
 
 ## Package Configuration
@@ -265,11 +269,13 @@ If these upstream sources disappear or stop working, SpinDB breaks. hostdb ensur
 ### Development Workflow
 
 ```bash
-# Local: download official binary, repackage, save to ./dist
+# MySQL: download official binary, repackage, save to ./dist
 pnpm download:mysql -- --version 8.4.3
-
-# Download for all platforms
 pnpm download:mysql -- --version 8.4.3 --all-platforms
+
+# PostgreSQL: download from zonky.io (Maven Central)
+pnpm download:postgresql -- --version 17.7.0
+pnpm download:postgresql -- --version 17.7.0 --all-platforms
 
 # Fallback: build from source via Docker (if no official binary)
 ./builds/mysql/build-local.sh --platform linux-x64 --version 8.4.3

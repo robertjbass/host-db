@@ -534,11 +534,10 @@
       "note": "",
       "latestLts": "18",
       "versions": {
-        "18.1": true,
-        "17.7": true,
-        "16.11": true,
-        "15.15": true,
-        "14.20": true
+        "18.1.0": true,
+        "17.7.0": true,
+        "16.11.0": true,
+        "15.15.0": true
       },
       "platforms": {
         "linux-x64": true,
