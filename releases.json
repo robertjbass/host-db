@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-04T21:01:11.627Z",
+  "lastUpdated": "2026-01-04T21:25:47.571Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -97,6 +97,40 @@
             "url": "https://github.com/robertjbass/hostdb/releases/download/mysql-9.1.0/mysql-9.1.0-win32-x64.zip",
             "sha256": "4bc4068ae41cdc1b7bc5dfca524d90cb4f625923eab8d29d7a199a4bbbf2498d",
             "size": 302352713
+          }
+        }
+      }
+    },
+    "postgresql": {
+      "18.1.0": {
+        "version": "18.1.0",
+        "releaseTag": "postgresql-18.1.0",
+        "releasedAt": "2026-01-04T21:25:34Z",
+        "platforms": {
+          "darwin-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-18.1.0/postgresql-18.1.0-darwin-arm64.tar.gz",
+            "sha256": "14ed0743ac120292015ef49876418d9e72544caab5ac5d46587378a12aac1dc7",
+            "size": 53330629
+          },
+          "darwin-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-18.1.0/postgresql-18.1.0-darwin-x64.tar.gz",
+            "sha256": "ed9fde968db099480f6e07107445f3cdfbe5cb4050fcf422f0ddf02722ec5ac7",
+            "size": 53330764
+          },
+          "linux-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-18.1.0/postgresql-18.1.0-linux-arm64.tar.gz",
+            "sha256": "08d3c28f7ab7888443ca26d1f8adc1e7b0994708c24692279e5bac91e61f30fc",
+            "size": 22042441
+          },
+          "linux-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-18.1.0/postgresql-18.1.0-linux-x64.tar.gz",
+            "sha256": "a897f3d59517c69fdcafeac58def03c466fa4aa15c5af2f54dee5a9aae56e794",
+            "size": 22784538
+          },
+          "win32-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-18.1.0/postgresql-18.1.0-win32-x64.zip",
+            "sha256": "16869eedef3476a90c29087a9c25d95258c9380ff0f58d27b3ae80ba3a8a5306",
+            "size": 40336275
           }
         }
       }
