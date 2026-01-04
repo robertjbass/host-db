@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-04T20:16:52.976Z",
+  "lastUpdated": "2026-01-04T20:50:58.913Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -33,6 +33,38 @@
             "url": "https://github.com/robertjbass/hostdb/releases/download/mysql-8.4.3/mysql-8.4.3-win32-x64.zip",
             "sha256": "5b7af50b116530131b4ba8c5dac4c97c5bcc81639d43466b2b7f714d9003d93b",
             "size": 259714478
+          }
+        }
+      },
+      "8.0.40": {
+        "version": "8.0.40",
+        "releaseTag": "mysql-8.0.40",
+        "releasedAt": "2026-01-04T20:50:44Z",
+        "platforms": {
+          "darwin-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mysql-8.0.40/mysql-8.0.40-darwin-arm64.tar.gz",
+            "sha256": "ee01e6866e172f58e2d7b2a4ea70ab065a82a07b57c53a258b09cb0b3d50c0f5",
+            "size": 170104069
+          },
+          "darwin-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mysql-8.0.40/mysql-8.0.40-darwin-x64.tar.gz",
+            "sha256": "882c4871836535b32067c3cb56fba6f0a14a86307b4e5320d987b83b027071da",
+            "size": 174826042
+          },
+          "linux-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mysql-8.0.40/mysql-8.0.40-linux-arm64.tar.gz",
+            "sha256": "b897122f793a555b3970a18d2d31bf11e3466b18d7833feb3dfe5a459f176b4f",
+            "size": 962072792
+          },
+          "linux-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mysql-8.0.40/mysql-8.0.40-linux-x64.tar.gz",
+            "sha256": "042e6f5c4963162c2f64fb7a7b524ac6c35d3ec9f9f7e7797959c0286fb68a71",
+            "size": 971765542
+          },
+          "win32-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mysql-8.0.40/mysql-8.0.40-win32-x64.zip",
+            "sha256": "83096828de495d32f4816f97bf59113ad294c5950fc03594aae9b4adb8ab2100",
+            "size": 243702261
           }
         }
       }
