@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-04T21:32:23.783Z",
+  "lastUpdated": "2026-01-04T21:33:53.967Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -195,6 +195,38 @@
             "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-16.11.0/postgresql-16.11.0-win32-x64.zip",
             "sha256": "6523fad1ae093e72e3969494f3eaa59c5400c404a4b0cfcced42542220c2934a",
             "size": 37319589
+          }
+        }
+      },
+      "17.7.0": {
+        "version": "17.7.0",
+        "releaseTag": "postgresql-17.7.0",
+        "releasedAt": "2026-01-04T21:33:42Z",
+        "platforms": {
+          "darwin-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-17.7.0/postgresql-17.7.0-darwin-arm64.tar.gz",
+            "sha256": "d47f19b3599860b30b99054468a5c583493505f01e5bb237067ea73ea08b35ec",
+            "size": 49353142
+          },
+          "darwin-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-17.7.0/postgresql-17.7.0-darwin-x64.tar.gz",
+            "sha256": "5e7b421a12ca17dc4218a47a7fec81cc51a3009fcd8c188201ec59ec863b930f",
+            "size": 49353081
+          },
+          "linux-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-17.7.0/postgresql-17.7.0-linux-arm64.tar.gz",
+            "sha256": "2987deddeb7d66a3aa557ba56b90e0e69b2710b7e502565759779e67423a8667",
+            "size": 21836590
+          },
+          "linux-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-17.7.0/postgresql-17.7.0-linux-x64.tar.gz",
+            "sha256": "779f9998786ad51b2e37f9df88fbaa6c8962db731480df2561a08542553f0a7b",
+            "size": 22565725
+          },
+          "win32-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-17.7.0/postgresql-17.7.0-win32-x64.zip",
+            "sha256": "0e44452f904295af339381ca43ddc3ced54c5ebe3a729c55ae89977704840ca7",
+            "size": 37667182
           }
         }
       }
