@@ -1,0 +1,24 @@
+{
+  "name": "host-db-monorepo",
+  "private": true,
+  "type": "module",
+  "author": "Bob Bass",
+  "license": "MIT",
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "generate:platform-packages": "tsx scripts/generate-platform-package.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prettier": "^3.4.0",
+    "tsx": "^4.19.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
