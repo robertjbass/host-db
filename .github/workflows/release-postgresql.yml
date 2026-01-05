@@ -70,8 +70,14 @@ jobs:
           # List created artifacts
           ls -la ./dist/
 
-          # Create artifact names output
-          ARTIFACTS=$(ls ./dist/*.tar.gz ./dist/*.zip 2>/dev/null | xargs -n1 basename | tr '\n' ',' | sed 's/,$//')
+          # Create artifact names output (handle case where no files exist)
+          shopt -s nullglob
+          FILES=(./dist/*.tar.gz ./dist/*.zip)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "ERROR: No artifacts were created"
+            exit 1
+          fi
+          ARTIFACTS=$(printf '%s\n' "${FILES[@]}" | xargs -n1 basename | tr '\n' ',' | sed 's/,$//')
           echo "artifact_names=$ARTIFACTS" >> $GITHUB_OUTPUT
 
       - name: Generate checksums
@@ -177,5 +183,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add releases.json
-          git diff --staged --quiet || git commit -m "chore: update releases.json for postgresql-${{ github.event.inputs.version }}"
-          git push
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+
+          git commit -m "chore: update releases.json for postgresql-${{ github.event.inputs.version }}"
+
+          # Retry push with rebase if remote has changed
+          for i in 1 2 3; do
+            if git push; then
+              echo "Push succeeded"
+              exit 0
+            fi
+            echo "Push failed, attempting rebase (attempt $i/3)..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "ERROR: Rebase failed due to conflicts. Manual intervention required."
+              git rebase --abort
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "ERROR: Push failed after 3 attempts"
+          exit 1

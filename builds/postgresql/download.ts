@@ -48,6 +48,13 @@ function isValidPlatform(value: string): value is Platform {
   return VALID_PLATFORMS.includes(value as Platform)
 }
 
+// Validate version format to prevent command injection (e.g., "17.7.0")
+const VERSION_REGEX = /^\d+\.\d+\.\d+$/
+
+function isValidVersion(value: string): boolean {
+  return VERSION_REGEX.test(value)
+}
+
 type SourceEntry = {
   url: string
   format: 'jar'
@@ -105,8 +112,10 @@ function loadSources(): Sources {
   const content = readFileSync(sourcesPath, 'utf-8')
   try {
     return JSON.parse(content) as Sources
-  } catch {
-    throw new Error(`Failed to parse sources.json: invalid JSON`)
+  } catch (error) {
+    throw new Error(`Failed to parse sources.json: invalid JSON`, {
+      cause: error,
+    })
   }
 }
 
@@ -271,13 +280,20 @@ function parseArgs(): {
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case '--version':
+      case '--version': {
         if (i + 1 >= args.length || args[i + 1].startsWith('-')) {
           logError('--version requires a value')
           process.exit(1)
         }
-        version = args[++i]
+        const versionValue = args[++i]
+        if (!isValidVersion(versionValue)) {
+          logError(`Invalid version format: ${versionValue}`)
+          logError('Version must be in format: X.Y.Z (e.g., 17.7.0)')
+          process.exit(1)
+        }
+        version = versionValue
         break
+      }
       case '--platform': {
         if (i + 1 >= args.length || args[i + 1].startsWith('-')) {
           logError('--platform requires a value')
