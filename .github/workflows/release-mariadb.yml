@@ -188,6 +188,12 @@ jobs:
         if: matrix.build_type == 'native'
         run: |
           brew install cmake openssl@3 pcre2 lz4 xz zstd snappy jemalloc bison
+          # Add Homebrew bison to PATH (system bison 2.3 is too old, need 2.4+)
+          if [ -d "/opt/homebrew/opt/bison/bin" ]; then
+            echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+          elif [ -d "/usr/local/opt/bison/bin" ]; then
+            echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH
+          fi
 
       - name: Build for macOS (native)
         if: matrix.build_type == 'native'
@@ -199,9 +205,16 @@ jobs:
 
           echo "Building MariaDB $VERSION for $PLATFORM (native macOS build)"
 
-          # Get OpenSSL path (differs between ARM64 and Intel macOS)
+          # Get Homebrew prefix (differs between ARM64 and Intel macOS)
+          BREW_PREFIX=$(brew --prefix)
           OPENSSL_PREFIX=$(brew --prefix openssl@3)
+          BISON_PATH="$BREW_PREFIX/opt/bison/bin/bison"
+
           echo "Using OpenSSL at: $OPENSSL_PREFIX"
+          echo "Using Bison at: $BISON_PATH"
+
+          # Verify bison version (need 2.4+)
+          "$BISON_PATH" --version | head -1
 
           if [ ! -d "$OPENSSL_PREFIX" ]; then
             echo "::error::OpenSSL not found at $OPENSSL_PREFIX"
@@ -223,10 +236,11 @@ jobs:
           mkdir -p "$BUILD_DIR"
           cd "$BUILD_DIR"
 
-          # Configure
+          # Configure (disable Columnstore as it has macOS compatibility issues)
           cmake "$SOURCE_DIR" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/mariadb" \
+            -DBISON_EXECUTABLE="$BISON_PATH" \
             -DWITH_SSL="$OPENSSL_PREFIX" \
             -DWITH_PCRE=system \
             -DWITH_JEMALLOC=system \
@@ -238,6 +252,7 @@ jobs:
             -DPLUGIN_SPHINX=NO \
             -DPLUGIN_CONNECT=NO \
             -DPLUGIN_OQGRAPH=NO \
+            -DPLUGIN_COLUMNSTORE=NO \
             -DPLUGIN_S3=NO \
             -DCOMPILATION_COMMENT="hostdb build" \
             -DCOMPILATION_COMMENT_SERVER="Built by hostdb for spindb"
