@@ -82,6 +82,31 @@ type SourcesJson = {
   versions: Record<string, Record<string, SourceEntry>>
 }
 
+type DatabaseEntry = {
+  versions: Record<string, boolean>
+}
+
+type DatabasesJson = {
+  databases: Record<string, DatabaseEntry>
+}
+
+function getEnabledVersions(database: string): Set<string> {
+  try {
+    const dbPath = join(ROOT, 'databases.json')
+    const data: DatabasesJson = JSON.parse(readFileSync(dbPath, 'utf-8'))
+    const dbEntry = data.databases[database]
+    if (!dbEntry) return new Set()
+
+    return new Set(
+      Object.entries(dbEntry.versions)
+        .filter(([, enabled]) => enabled === true)
+        .map(([version]) => version),
+    )
+  } catch {
+    return new Set()
+  }
+}
+
 function findMissingChecksums(): Array<{ database: string; version: string; platform: string }> {
   const missing: Array<{ database: string; version: string; platform: string }> = []
   const buildsDir = join(ROOT, 'builds')
@@ -96,10 +121,17 @@ function findMissingChecksums(): Array<{ database: string; version: string; plat
       continue
     }
 
+    const enabledVersions = getEnabledVersions(database)
+
     try {
       const sources: SourcesJson = JSON.parse(readFileSync(sourcesPath, 'utf-8'))
 
       for (const [version, platforms] of Object.entries(sources.versions)) {
+        // Only check versions enabled in databases.json
+        if (enabledVersions.size > 0 && !enabledVersions.has(version)) {
+          continue
+        }
+
         for (const [platform, entry] of Object.entries(platforms)) {
           // Only check entries with URLs (not build-required)
           if (entry.url && (entry.sha256 === null || entry.sha256 === undefined)) {

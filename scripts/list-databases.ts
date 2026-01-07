@@ -482,6 +482,9 @@ ${chalk.bold('Released column:')}
 }
 
 main().catch((error) => {
-  console.error(chalk.red('Error:'), error.message)
+  console.error(
+    chalk.red('Error:'),
+    error instanceof Error ? error.message : String(error),
+  )
   process.exit(1)
 })
