@@ -322,25 +322,23 @@ jobs:
 
           # Add metadata
           cd ../install
-          cat > valkey/.hostdb-metadata.json << EOF
-          {
-            "name": "valkey",
-            "version": "${VERSION}",
-            "platform": "${PLATFORM}",
-            "source": "source-build",
-            "sourceUrl": "https://github.com/valkey-io/valkey/releases",
-            "rehosted_by": "hostdb",
-            "rehosted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          }
-          EOF
+          printf '%s\n' \
+            '{' \
+            '  "name": "valkey",' \
+            "  \"version\": \"${VERSION}\"," \
+            "  \"platform\": \"${PLATFORM}\"," \
+            '  "source": "source-build",' \
+            '  "sourceUrl": "https://github.com/valkey-io/valkey/releases",' \
+            '  "rehosted_by": "hostdb",' \
+            "  \"rehosted_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" \
+            '}' > valkey/.hostdb-metadata.json
 
-          # Create zip (Windows convention)
+          # Create zip (Windows convention) - archive from install/ to include valkey/ prefix
           mkdir -p ../dist
-          cd valkey
-          zip -r "../../dist/valkey-${VERSION}-${PLATFORM}.zip" .
+          zip -r "../dist/valkey-${VERSION}-${PLATFORM}.zip" valkey
 
           echo "Build complete:"
-          ls -la ../../dist/
+          ls -la ../dist/
 
       - name: Generate checksum
         shell: bash

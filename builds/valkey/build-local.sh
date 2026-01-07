@@ -31,7 +31,7 @@ set -euo pipefail
 VERSION="9.0.1"
 PLATFORM="linux-x64"
 OUTPUT_DIR="./dist"
-NO_CACHE=""
+DOCKER_ARGS=()   # Optional docker build arguments
 CLEANUP_MODE=""  # "", "yes", or "no"
 
 # Script directory
@@ -51,7 +51,32 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 show_help() {
-    head -30 "$0" | tail -25 | sed 's/^#//' | sed 's/^ //'
+    cat << 'EOF'
+Local Docker build script for Valkey
+
+Usage:
+  ./builds/valkey/build-local.sh [options]
+
+Options:
+  --version VERSION    Valkey version to build (default: 9.0.1)
+  --platform PLATFORM  Target platform: linux-x64, linux-arm64 (default: linux-x64)
+  --output DIR         Output directory (default: ./dist)
+  --no-cache           Build without Docker cache
+  --cleanup            Remove extracted directory after creating tarball
+  --no-cleanup         Keep extracted directory (default in non-interactive/CI)
+  --help               Show this help message
+
+Environment:
+  CLEANUP=1            Same as --cleanup
+  CI=true              Implies --no-cleanup unless --cleanup is specified
+
+Examples:
+  ./builds/valkey/build-local.sh
+  ./builds/valkey/build-local.sh --version 9.0.1 --platform linux-arm64
+  ./builds/valkey/build-local.sh --no-cache --cleanup
+
+Build time: ~5-15 minutes depending on platform and resources
+EOF
     exit "${1:-0}"
 }
 
@@ -71,7 +96,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --no-cache)
-            NO_CACHE="--no-cache"
+            DOCKER_ARGS+=("--no-cache")
             shift
             ;;
         --cleanup)
@@ -143,7 +168,7 @@ docker buildx build \
     --build-arg VERSION="${VERSION}" \
     --output "type=local,dest=${OUTPUT_PATH}" \
     --progress=plain \
-    ${NO_CACHE} \
+    "${DOCKER_ARGS[@]}" \
     -f "${SCRIPT_DIR}/Dockerfile" \
     "${PROJECT_ROOT}"
 
