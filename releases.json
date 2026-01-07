@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-07T15:39:22.190Z",
+  "lastUpdated": "2026-01-07T16:02:56.251Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -359,6 +359,38 @@
             "url": "https://github.com/robertjbass/hostdb/releases/download/redis-7.4.7/redis-7.4.7-win32-x64.zip",
             "sha256": "f38b403f7e8c9b022c54bb52ad54b801c32b8270bb55cdbf24e4825952168415",
             "size": 11481934
+          }
+        }
+      },
+      "8.4.0": {
+        "version": "8.4.0",
+        "releaseTag": "redis-8.4.0",
+        "releasedAt": "2026-01-07T16:02:41Z",
+        "platforms": {
+          "darwin-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/redis-8.4.0/redis-8.4.0-darwin-arm64.tar.gz",
+            "sha256": "eeac10db13ce778c07dcab215ea4b71c8a14595ce7a62d3ef4bd3eeb4a9a00ab",
+            "size": 1497752
+          },
+          "darwin-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/redis-8.4.0/redis-8.4.0-darwin-x64.tar.gz",
+            "sha256": "0a11a44c16ac5df97fd2e7b3811bef5449d2bec19c7dbb51cc86f84c63611b48",
+            "size": 1582372
+          },
+          "linux-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/redis-8.4.0/redis-8.4.0-linux-arm64.tar.gz",
+            "sha256": "f580eb8d8dd82e98f2d7dbd30cf3737d3f8640affee5b8053e9bc4be3fb2d937",
+            "size": 13816267
+          },
+          "linux-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/redis-8.4.0/redis-8.4.0-linux-x64.tar.gz",
+            "sha256": "14b4d4e4d78e71b0e9800d411bd49586606eaaff5ce95d1e063226e01dc70c36",
+            "size": 13738541
+          },
+          "win32-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/redis-8.4.0/redis-8.4.0-win32-x64.zip",
+            "sha256": "1741f9ad58fa926056641c193951b910bb82a64167f5f6cccedf3570f4e216ad",
+            "size": 12750074
           }
         }
       }
