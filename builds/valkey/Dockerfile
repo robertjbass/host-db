@@ -94,6 +94,9 @@ RUN PLATFORM="linux-x64"; \
 # Verify key binaries exist
 RUN test -f /opt/valkey/bin/valkey-server \
     && test -f /opt/valkey/bin/valkey-cli \
+    && test -f /opt/valkey/bin/valkey-benchmark \
+    && test -f /opt/valkey/bin/valkey-check-aof \
+    && test -f /opt/valkey/bin/valkey-check-rdb \
     && echo "Build verification passed"
 
 # =============================================================================
