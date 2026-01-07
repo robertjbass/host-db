@@ -280,7 +280,10 @@ jobs:
           # Configure (disable Columnstore as it has macOS compatibility issues)
           # Use xcrun to ensure cmake inherits correct SDK environment
           # Include both Xcode SDK and Homebrew in search paths (exclude Command Line Tools)
+          # CMAKE_POLICY_VERSION_MINIMUM fixes compatibility with older wsrep-lib CMakeLists.txt
+          # that specify cmake_minimum_required < 3.5 (CMake 4.0+ removed support for < 3.5)
           xcrun cmake "$SOURCE_DIR" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/mariadb" \
             -DCMAKE_OSX_SYSROOT="$SDKROOT" \

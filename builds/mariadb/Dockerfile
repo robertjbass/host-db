@@ -68,7 +68,10 @@ WORKDIR /build/mariadb-src
 # - STANDALONE layout for relocatable installation
 # - Bundle most dependencies for portability
 # - Disable features not needed for embedded/dev use
+# - CMAKE_POLICY_VERSION_MINIMUM fixes compatibility with older wsrep-lib CMakeLists.txt
+#   that specify cmake_minimum_required < 3.5 (CMake 4.0+ removed support for < 3.5)
 RUN cmake . \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/opt/mariadb \
     -DINSTALL_LAYOUT=STANDALONE \
