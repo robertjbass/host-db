@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-07T16:02:56.251Z",
+  "lastUpdated": "2026-01-07T18:14:40.398Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -391,6 +391,35 @@
             "url": "https://github.com/robertjbass/hostdb/releases/download/redis-8.4.0/redis-8.4.0-win32-x64.zip",
             "sha256": "1741f9ad58fa926056641c193951b910bb82a64167f5f6cccedf3570f4e216ad",
             "size": 12750074
+          }
+        }
+      }
+    },
+    "valkey": {
+      "8.0.6": {
+        "version": "8.0.6",
+        "releaseTag": "valkey-8.0.6",
+        "releasedAt": "2026-01-07T18:14:22Z",
+        "platforms": {
+          "darwin-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/valkey-8.0.6/valkey-8.0.6-darwin-arm64.tar.gz",
+            "sha256": "17e868ed49b8b663cd1c216748133cf582419336994bcad8714ed9144be5fbef",
+            "size": 1285136
+          },
+          "darwin-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/valkey-8.0.6/valkey-8.0.6-darwin-x64.tar.gz",
+            "sha256": "71b7cfb3c8033bbaac1b42d1a9dac6d4facfd4ba180c73c4147ea097859a1566",
+            "size": 1365448
+          },
+          "linux-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/valkey-8.0.6/valkey-8.0.6-linux-arm64.tar.gz",
+            "sha256": "844d49da6fb0676997a685804738d8cc1dfa9d07137991e8e24cc70a829deeba",
+            "size": 12800279
+          },
+          "linux-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/valkey-8.0.6/valkey-8.0.6-linux-x64.tar.gz",
+            "sha256": "d50de7772631dface7fc81c7df2175034c0c5514b068407e94c5f4f181cc3ba9",
+            "size": 12718461
           }
         }
       }
