@@ -165,9 +165,26 @@ Proceed with build (or fail with helpful error)
 |----------|--------|
 | linux-x64 | Download or Docker build |
 | linux-arm64 | Docker build (QEMU emulation) |
-| darwin-x64 | Native build on macos-13 runner |
+| darwin-x64 | Native build on macos-15-intel runner |
 | darwin-arm64 | Native build on macos-14 runner |
 | win32-x64 | Download official binary |
+
+### macOS Native Build Considerations
+
+Native macOS builds (darwin-x64, darwin-arm64) require careful SDK configuration to avoid conflicts between Xcode and Command Line Tools:
+
+**The Problem:** CMake can find libraries from Command Line Tools (`/Library/Developer/CommandLineTools/SDKs/`) while using Xcode's SDK for compilation. This causes C++ header search path errors like:
+```
+error: <cstddef> tried including <stddef.h> but didn't find libc++'s <stddef.h> header.
+```
+
+**The Solution:** Force all tools to use a single SDK by:
+1. Setting `xcode-select` to the Xcode app (not Command Line Tools)
+2. Exporting `SDKROOT`, `CC`, `CXX`, `CFLAGS`, `CXXFLAGS`, `LDFLAGS` with `--sysroot`
+3. Using `CMAKE_FIND_ROOT_PATH` to restrict library search to Xcode SDK + Homebrew only
+4. Running cmake via `xcrun` to inherit the correct environment
+
+See `release-mariadb.yml` for a working example of this configuration.
 
 ## Adding a New Database
 
