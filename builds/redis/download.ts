@@ -528,7 +528,11 @@ async function main() {
     }
 
     // Repackage based on source type
-    if (source.sourceType === 'redis-windows') {
+    if (source.sourceType === undefined) {
+      logError(`Missing sourceType for download entry: ${platform}`)
+      skippedCount++
+      continue
+    } else if (source.sourceType === 'redis-windows') {
       repackageRedisWindows(downloadPath, outputPath, version, platform)
     } else {
       logError(`Unknown source type: ${source.sourceType}`)
