@@ -276,32 +276,35 @@ jobs:
           echo "Build complete:"
           ls -la "$GITHUB_WORKSPACE/dist/"
 
-      # Setup MSYS2 for Windows builds (must be before the build step)
-      - name: Setup MSYS2
+      # Setup Cygwin for Windows builds (provides POSIX compatibility layer)
+      - name: Setup Cygwin
         if: matrix.build_type == 'native-windows'
-        uses: msys2/setup-msys2@v2
+        uses: cygwin/cygwin-install-action@master
         with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            base-devel
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-openssl
-            mingw-w64-ucrt-x86_64-pkg-config
+          packages: >-
+            make
+            gcc-core
+            gcc-g++
+            libssl-devel
+            pkg-config
             zip
             curl
 
-      # For Windows: native build using MSYS2
-      - name: Build for Windows (native)
+      # For Windows: build using Cygwin (POSIX compatibility layer)
+      - name: Build for Windows (Cygwin)
         if: matrix.build_type == 'native-windows'
         id: build-windows
         timeout-minutes: 90
-        shell: msys2 {0}
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr '{0}'
+        env:
+          CYGWIN: winsymlinks:native
         run: |
           VERSION="${{ github.event.inputs.version }}"
           PLATFORM="win32-x64"
 
-          echo "Building Valkey $VERSION for $PLATFORM (native Windows build)"
+          echo "Building Valkey $VERSION for $PLATFORM (Cygwin build)"
+
+          cd /cygdrive/d/a/hostdb/hostdb
 
           # Download source from GitHub
           curl -fsSL "https://github.com/valkey-io/valkey/archive/refs/tags/${VERSION}.tar.gz" \
