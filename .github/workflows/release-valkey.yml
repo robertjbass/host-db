@@ -308,7 +308,7 @@ jobs:
           # This exposes Dl_info and dladdr in dlfcn.h
           sed -i 's/\_\_GNU\_VISIBLE/1/' /usr/include/dlfcn.h
 
-          cd /cygdrive/d/a/hostdb/hostdb
+          cd "$(cygpath "$GITHUB_WORKSPACE")"
 
           # Download source from GitHub
           curl -fsSL "https://github.com/valkey-io/valkey/archive/refs/tags/${VERSION}.tar.gz" \
@@ -351,7 +351,8 @@ jobs:
           echo "Build complete:"
           ls -la ../dist/
 
-      - name: Generate checksum
+      - name: Generate checksum (Unix)
+        if: matrix.build_type != 'native-windows'
         shell: bash
         run: |
           cd dist
@@ -364,6 +365,18 @@ jobs:
                 # macOS uses shasum
                 shasum -a 256 "$f" >> checksums.txt
               fi
+            fi
+          done
+          cat checksums.txt
+
+      - name: Generate checksum (Windows)
+        if: matrix.build_type == 'native-windows'
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr '{0}'
+        run: |
+          cd "$(cygpath "$GITHUB_WORKSPACE")/dist"
+          for f in *.tar.gz *.zip; do
+            if [ -f "$f" ]; then
+              sha256sum "$f" >> checksums.txt
             fi
           done
           cat checksums.txt
