@@ -24,7 +24,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
 # Redis has minimal dependencies - just needs make, gcc, and libc
-RUN apt-get update && apt-get install -y \
+# Retry apt-get update to handle transient mirror sync issues
+RUN for i in 1 2 3; do \
+        apt-get update && break || \
+        { echo "apt-get update failed (attempt $i), retrying..."; sleep 5; }; \
+    done && apt-get install -y \
     build-essential \
     curl \
     pkg-config \
@@ -63,7 +67,11 @@ ARG VERSION
 ARG TARGETARCH
 
 # Install runtime dependencies for verification
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Retry apt-get update to handle transient mirror sync issues
+RUN for i in 1 2 3; do \
+        apt-get update && break || \
+        { echo "apt-get update failed (attempt $i), retrying..."; sleep 5; }; \
+    done && apt-get install -y --no-install-recommends \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
