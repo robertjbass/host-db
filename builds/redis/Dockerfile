@@ -27,7 +27,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Retry apt-get update to handle transient mirror sync issues
 RUN for i in 1 2 3; do \
         apt-get update && break || \
-        { echo "apt-get update failed (attempt $i), retrying..."; sleep 5; }; \
+        { [ $i -eq 3 ] && { echo "apt-get update failed after 3 attempts"; exit 1; }; \
+          echo "apt-get update failed (attempt $i), retrying..."; sleep 5; }; \
     done && apt-get install -y \
     build-essential \
     curl \
@@ -70,7 +71,8 @@ ARG TARGETARCH
 # Retry apt-get update to handle transient mirror sync issues
 RUN for i in 1 2 3; do \
         apt-get update && break || \
-        { echo "apt-get update failed (attempt $i), retrying..."; sleep 5; }; \
+        { [ $i -eq 3 ] && { echo "apt-get update failed after 3 attempts"; exit 1; }; \
+          echo "apt-get update failed (attempt $i), retrying..."; sleep 5; }; \
     done && apt-get install -y --no-install-recommends \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
