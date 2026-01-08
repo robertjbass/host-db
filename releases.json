@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-08T08:08:21.802Z",
+  "lastUpdated": "2026-01-08T08:16:16.710Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -481,6 +481,38 @@
             "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-7.0.28/mongodb-7.0.28-win32-x64.zip",
             "sha256": "29bfeb6108bccfc94e859412c90d771bf8af4dc93bc5d392763b91286cc199fd",
             "size": 631485328
+          }
+        }
+      },
+      "8.0.17": {
+        "version": "8.0.17",
+        "releaseTag": "mongodb-8.0.17",
+        "releasedAt": "2026-01-08T08:16:02Z",
+        "platforms": {
+          "darwin-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.0.17/mongodb-8.0.17-darwin-arm64.tar.gz",
+            "sha256": "11f09b48802c934a46d020919b2265013bea937d27f65e2f6557eb9c987e2972",
+            "size": 80298129
+          },
+          "darwin-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.0.17/mongodb-8.0.17-darwin-x64.tar.gz",
+            "sha256": "c8bc79e182e71345afeffe47b3331947ac4e6bf91907cee2ae416359770e38f9",
+            "size": 87015242
+          },
+          "linux-arm64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.0.17/mongodb-8.0.17-linux-arm64.tar.gz",
+            "sha256": "c1665a4192156179f04448c66b5053b00cf8453dce93a481bab9c2f2bb13f874",
+            "size": 97644344
+          },
+          "linux-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.0.17/mongodb-8.0.17-linux-x64.tar.gz",
+            "sha256": "36a94a0dc29ef3d7e605f86ae9e524f36bfacfd1ddd63254e417034766fdd101",
+            "size": 103768635
+          },
+          "win32-x64": {
+            "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.0.17/mongodb-8.0.17-win32-x64.zip",
+            "sha256": "0e25cec0315663e58ec514cade73b888d733a08b6663b81ad84cd65c9a60f61a",
+            "size": 794531139
           }
         }
       }
