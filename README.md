@@ -210,7 +210,12 @@ pnpm add:engine sqlite   # Then follow printed instructions
 
 ## TODO
 
-- [ ] Add Windows filesystem support to download scripts (path separators, temp directories)
+- [ ] Add Windows filesystem support to download scripts:
+  - [ ] Check `process.platform === 'win32'` for platform-specific logic
+  - [ ] Use Node's `path` utilities (`path.sep`, `path.join`, `path.normalize`) instead of manual string concatenation
+  - [ ] Use `os.tmpdir()` for temp file locations
+  - [ ] Use `fs.mkdtemp()` for safe cross-platform temp directory creation
+  - [ ] Normalize/escape backslashes when constructing download paths or invoking shell commands
 
 ## Inspiration
 

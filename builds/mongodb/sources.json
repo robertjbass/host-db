@@ -86,7 +86,7 @@
     }
   },
   "notes": {
-    "license": "SSPL-1.0 - Cannot be used in closed-source or commercial software. Use FerretDB as alternative.",
+    "license": "SSPL-1.0 - Permits internal/commercial use and redistribution, but requires releasing service source code (or commercial license) when offering MongoDB as a hosted service to third parties.",
     "ubuntu": "Linux binaries target Ubuntu 22.04 but work on glibc 2.35+ distros",
     "cdn": "Official MongoDB CDN at fastdl.mongodb.org"
   }

@@ -110,10 +110,7 @@ jobs:
           if [ "$PLATFORMS" = "all" ]; then
             pnpm download:mysql -- --version "$VERSION" --all-platforms --output ./dist
           else
-            # Convert comma-separated to multiple --platform flags
-            for platform in $(echo "$PLATFORMS" | tr ',' ' '); do
-              pnpm download:mysql -- --version "$VERSION" --platform "$platform" --output ./dist
-            done
+            pnpm download:mysql -- --version "$VERSION" --platform "$PLATFORMS" --output ./dist
           fi
 
           # List created artifacts

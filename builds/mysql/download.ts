@@ -196,6 +196,14 @@ async function calculateSha256(filePath: string): Promise<string> {
   })
 }
 
+function verifyCommand(command: string): void {
+  try {
+    execFileSync('which', [command], { stdio: 'pipe' })
+  } catch {
+    throw new Error(`Required command not found: ${command}`)
+  }
+}
+
 function repackage(
   sourcePath: string,
   format: string,
@@ -203,6 +211,16 @@ function repackage(
   version: string,
   platform: Platform,
 ): void {
+  // Verify required commands exist before starting
+  if (format === 'zip') {
+    verifyCommand('unzip')
+  } else {
+    verifyCommand('tar')
+  }
+  if (platform.startsWith('win32')) {
+    verifyCommand('zip')
+  }
+
   const tempDir = resolve(dirname(sourcePath), 'temp-extract')
   mkdirSync(tempDir, { recursive: true })
 
