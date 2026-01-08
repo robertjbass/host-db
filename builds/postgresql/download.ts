@@ -151,8 +151,24 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
     const { done, value } = await reader.read()
     if (done) break
 
-    fileStream.write(value)
+    const canContinue = fileStream.write(value)
     downloadedBytes += value.length
+
+    // Handle backpressure - wait for drain if buffer is full
+    if (!canContinue) {
+      await new Promise<void>((resolve, reject) => {
+        const onDrain = () => {
+          fileStream.removeListener('error', onError)
+          resolve()
+        }
+        const onError = (err: Error) => {
+          fileStream.removeListener('drain', onDrain)
+          reject(err)
+        }
+        fileStream.once('drain', onDrain)
+        fileStream.once('error', onError)
+      })
+    }
 
     // Progress update
     if (totalBytes > 0) {
@@ -195,6 +211,7 @@ async function calculateSha256(filePath: string): Promise<string> {
   })
 }
 
+// TODO: Windows support - use 'where' instead of 'which' when process.platform === 'win32'
 function verifyCommand(command: string): void {
   try {
     execFileSync('which', [command], { stdio: 'pipe' })
