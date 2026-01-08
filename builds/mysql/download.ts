@@ -21,11 +21,14 @@ import {
   existsSync,
   readFileSync,
   writeFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
 } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { resolve, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -63,7 +66,6 @@ type SourceEntry = {
 
 type Sources = {
   database: string
-  baseUrl: string
   versions: Record<string, Record<Platform, SourceEntry>>
   notes: Record<string, string>
 }
@@ -149,8 +151,24 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
     const { done, value } = await reader.read()
     if (done) break
 
-    fileStream.write(value)
+    const canContinue = fileStream.write(value)
     downloadedBytes += value.length
+
+    // Handle backpressure - wait for drain if buffer is full
+    if (!canContinue) {
+      await new Promise<void>((resolve, reject) => {
+        const onDrain = () => {
+          fileStream.removeListener('error', onError)
+          resolve()
+        }
+        const onError = (err: Error) => {
+          fileStream.removeListener('drain', onDrain)
+          reject(err)
+        }
+        fileStream.once('drain', onDrain)
+        fileStream.once('error', onError)
+      })
+    }
 
     // Progress update
     if (totalBytes > 0) {
@@ -193,6 +211,15 @@ async function calculateSha256(filePath: string): Promise<string> {
   })
 }
 
+// TODO: Windows support - use 'where' instead of 'which' when process.platform === 'win32'
+function verifyCommand(command: string): void {
+  try {
+    execFileSync('which', [command], { stdio: 'pipe' })
+  } catch {
+    throw new Error(`Required command not found: ${command}`)
+  }
+}
+
 function repackage(
   sourcePath: string,
   format: string,
@@ -200,24 +227,32 @@ function repackage(
   version: string,
   platform: Platform,
 ): void {
+  // Verify required commands exist before starting
+  if (format === 'zip') {
+    verifyCommand('unzip')
+  } else {
+    verifyCommand('tar')
+  }
+  if (platform.startsWith('win32')) {
+    verifyCommand('zip')
+  }
+
   const tempDir = resolve(dirname(sourcePath), 'temp-extract')
   mkdirSync(tempDir, { recursive: true })
 
   logInfo('Extracting archive...')
 
-  // Extract based on format
+  // Extract based on format (using execFileSync with array args for safety)
   if (format === 'tar.xz') {
-    execSync(`tar -xJf "${sourcePath}" -C "${tempDir}"`, { stdio: 'inherit' })
+    execFileSync('tar', ['-xJf', sourcePath, '-C', tempDir], { stdio: 'inherit' })
   } else if (format === 'tar.gz') {
-    execSync(`tar -xzf "${sourcePath}" -C "${tempDir}"`, { stdio: 'inherit' })
+    execFileSync('tar', ['-xzf', sourcePath, '-C', tempDir], { stdio: 'inherit' })
   } else if (format === 'zip') {
-    execSync(`unzip -q "${sourcePath}" -d "${tempDir}"`, { stdio: 'inherit' })
+    execFileSync('unzip', ['-q', sourcePath, '-d', tempDir], { stdio: 'inherit' })
   }
 
   // Find extracted directory (MySQL extracts to mysql-VERSION-PLATFORM/)
-  const extractedDirs = execSync(`ls "${tempDir}"`, { encoding: 'utf-8' })
-    .trim()
-    .split('\n')
+  const extractedDirs = readdirSync(tempDir)
   const mysqlDir = extractedDirs.find((d) => d.startsWith('mysql-'))
 
   if (!mysqlDir) {
@@ -247,21 +282,22 @@ function repackage(
 
   // Rename directory to just 'mysql' for consistency
   const finalDir = resolve(tempDir, 'mysql')
-  execSync(`mv "${extractedPath}" "${finalDir}"`)
+  renameSync(extractedPath, finalDir)
 
-  // Create tarball
+  // Create tarball (using execFileSync with array args for safety)
   if (platform.startsWith('win32')) {
-    execSync(`cd "${tempDir}" && zip -rq "${outputPath}" mysql`, {
+    execFileSync('zip', ['-rq', outputPath, 'mysql'], {
       stdio: 'inherit',
+      cwd: tempDir,
     })
   } else {
-    execSync(`tar -czf "${outputPath}" -C "${tempDir}" mysql`, {
+    execFileSync('tar', ['-czf', outputPath, '-C', tempDir, 'mysql'], {
       stdio: 'inherit',
     })
   }
 
   // Cleanup temp
-  execSync(`rm -rf "${tempDir}"`)
+  rmSync(tempDir, { recursive: true, force: true })
 
   logSuccess(`Created: ${outputPath}`)
 }

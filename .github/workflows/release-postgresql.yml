@@ -112,10 +112,7 @@ jobs:
           if [ "$PLATFORMS" = "all" ]; then
             pnpm download:postgresql -- --version "$VERSION" --all-platforms --output ./dist
           else
-            # Convert comma-separated to multiple --platform flags
-            for platform in $(echo "$PLATFORMS" | tr ',' ' '); do
-              pnpm download:postgresql -- --version "$VERSION" --platform "$platform" --output ./dist
-            done
+            pnpm download:postgresql -- --version "$VERSION" --platform "$PLATFORMS" --output ./dist
           fi
 
           # List created artifacts
@@ -133,8 +130,13 @@ jobs:
 
       - name: Generate checksums
         run: |
+          shopt -s nullglob
           cd dist
-          sha256sum *.tar.gz *.zip 2>/dev/null > checksums.txt || sha256sum *.tar.gz > checksums.txt
+          for f in *.tar.gz *.zip; do
+            if [ -f "$f" ]; then
+              sha256sum "$f" >> checksums.txt
+            fi
+          done
           cat checksums.txt
 
       - name: Upload artifacts
