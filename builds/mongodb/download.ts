@@ -329,6 +329,9 @@ async function repackage(
   verifyCommand('tar')
   if (platform.startsWith('win32')) {
     verifyCommand('zip')
+  } else if (platform.startsWith('darwin')) {
+    // macOS components use .zip format
+    verifyCommand('unzip')
   }
 
   const tempDir = resolve(downloadDir, 'temp-bundle')

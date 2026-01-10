@@ -118,34 +118,34 @@
       }
     },
     "database-tools": {
-      "version": "100.13.0",
+      "version": "100.14.0",
       "description": "MongoDB Database Tools - mongodump, mongorestore, etc.",
       "binaries": ["mongodump", "mongorestore", "mongoexport", "mongoimport", "mongostat", "mongotop", "bsondump", "mongofiles"],
       "platforms": {
         "linux-x64": {
-          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.13.0.tgz",
+          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.14.0.tgz",
           "format": "tar.gz",
-          "sha256": "490dcd081cd067209062b7a09f2969dc783c6fecf4457d3405a4b4635a7e1fac"
+          "sha256": "4104998bda784a0cb16fc2e06d9c21645516d72c4fb481c9b103f1e0a8458fc0"
         },
         "linux-arm64": {
-          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-arm64-100.13.0.tgz",
+          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-arm64-100.14.0.tgz",
           "format": "tar.gz",
-          "sha256": "bd404104d7239cc5e88d5ed326870bd851b2012eef92797bfad5c9aa254a364e"
+          "sha256": "ef2945973b7e9c0f95d25dc607d420b0b07c486a675937ac9723b32f56ce718d"
         },
         "darwin-x64": {
-          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-macos-x86_64-100.13.0.zip",
+          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-macos-x86_64-100.14.0.zip",
           "format": "zip",
-          "sha256": "6f01bd800463162cbd4f6ce26affad82c1035f6055c62f0765bf66bf7a28507b"
+          "sha256": "446485dea4709dd39100364b530305195d2441730982f705051c538d2eff17d6"
         },
         "darwin-arm64": {
-          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-macos-arm64-100.13.0.zip",
+          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-macos-arm64-100.14.0.zip",
           "format": "zip",
-          "sha256": "2924ba82a80115964dc0284a6273086edef3945b77bf61ad9477d47380804b2d"
+          "sha256": "69ee5a9cc8afd6373ca0723d2c62c7a272c9e629803a361e2f63e61fd32df65e"
         },
         "win32-x64": {
-          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-windows-x86_64-100.13.0.zip",
+          "url": "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-windows-x86_64-100.14.0.zip",
           "format": "zip",
-          "sha256": "304735512a26efcfe818d78c082ca33f41ace11129f6f6a3e6966c0f1e13be0b"
+          "sha256": "3ba13d9e504b1bde9b0621471a68c57f47954d1583772e40dd97e174b822cc99"
         }
       }
     }
