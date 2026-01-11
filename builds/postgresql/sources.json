@@ -9,7 +9,8 @@
       "linux-arm64": {
         "url": "https://downloads.percona.com/downloads/postgresql-distribution-18/18.1/binary/tarball/percona-postgresql-18.1-ssl3-linux-aarch64.tar.gz",
         "format": "tar.gz",
-        "sourceType": "percona"
+        "sourceType": "percona",
+        "sha256": "e021dc7de4831be7c88adbee6b39b71f917da0ad26e2f9da1e32033a2b5341ec"
       },
       "darwin-x64": {
         "sourceType": "build-required"
@@ -31,7 +32,8 @@
       "linux-arm64": {
         "url": "https://downloads.percona.com/downloads/postgresql-distribution-17/17.7/binary/tarball/percona-postgresql-17.7-ssl3-linux-aarch64.tar.gz",
         "format": "tar.gz",
-        "sourceType": "percona"
+        "sourceType": "percona",
+        "sha256": "70c285b0b7980d83ee948761b6ecb586a27cf16390c2fceb3b286466f10ff9f6"
       },
       "darwin-x64": {
         "sourceType": "build-required"
@@ -53,7 +55,8 @@
       "linux-arm64": {
         "url": "https://downloads.percona.com/downloads/postgresql-distribution-16/16.11/binary/tarball/percona-postgresql-16.11-ssl3-linux-aarch64.tar.gz",
         "format": "tar.gz",
-        "sourceType": "percona"
+        "sourceType": "percona",
+        "sha256": "cc199fc43d1572bec57914f8b0fa3bbe975a737a43042baca618ae56270d0b02"
       },
       "darwin-x64": {
         "sourceType": "build-required"
@@ -75,7 +78,8 @@
       "linux-arm64": {
         "url": "https://downloads.percona.com/downloads/postgresql-distribution-15/15.15/binary/tarball/percona-postgresql-15.15-ssl3-linux-aarch64.tar.gz",
         "format": "tar.gz",
-        "sourceType": "percona"
+        "sourceType": "percona",
+        "sha256": "fadee1e6d950e175bb6f45f98607fc5048537da3ddb984e80906fdf7fdd9ed55"
       },
       "darwin-x64": {
         "sourceType": "build-required"
