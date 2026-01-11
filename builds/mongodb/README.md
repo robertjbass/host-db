@@ -26,8 +26,8 @@ hostdb follows the **complete, embeddable binary** philosophy: every release sho
 
 The server version determines the release version (e.g., `mongodb-8.0.17`). The bundled shell and tools use their latest compatible versions:
 
-- **mongosh**: Forward and backward compatible with all MongoDB server versions
-- **Database Tools**: Version 100.x compatible with MongoDB 4.4+
+- **mongosh**: Supports MongoDB Server 4.2 and later (older servers require the legacy `mongo` shell)
+- **Database Tools**: Version 100.x is compatible with MongoDB Server 4.2 and later
 
 Current bundled versions are specified in `sources.json` under the `components` section.
 

@@ -155,6 +155,6 @@
     "ubuntu": "Linux binaries target Ubuntu 22.04 but work on glibc 2.35+ distros",
     "cdn": "Official MongoDB CDN at fastdl.mongodb.org",
     "bundling": "Releases bundle server (mongod/mongos), shell (mongosh), and database tools (mongodump, mongorestore, etc.) into a single package for complete, embeddable installations.",
-    "component-compatibility": "mongosh and database-tools are forward/backward compatible with all supported MongoDB server versions (7.0+)"
+    "component-compatibility": "Bundled mongosh 2.5.10 and database-tools 100.14.0 work with MongoDB Server 4.2+ for basic CRUD and admin operations. Feature parity varies by server version (e.g., Queryable Encryption requires specific server versions). Test version-specific features and consult release notes when using bundled clients with older servers."
   }
 }

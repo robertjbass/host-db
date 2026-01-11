@@ -134,12 +134,29 @@ function loadSources(): Sources {
   }
 }
 
-async function downloadFile(url: string, destPath: string): Promise<void> {
+async function downloadFile(
+  url: string,
+  destPath: string,
+  timeoutMs: number = 300000,
+): Promise<void> {
   logInfo(`Downloading: ${url}`)
 
-  const response = await fetch(url, { redirect: 'follow' })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  let response: Response
+  try {
+    response = await fetch(url, { redirect: 'follow', signal: controller.signal })
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Download timed out after ${timeoutMs / 1000}s: ${url}`)
+    }
+    throw error
+  }
 
   if (!response.ok) {
+    clearTimeout(timeoutId)
     throw new Error(
       `Download failed: ${response.status} ${response.statusText}`,
     )
@@ -154,55 +171,60 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
   const reader = response.body?.getReader()
 
   if (!reader) {
+    clearTimeout(timeoutId)
     throw new Error('No response body')
   }
 
   let downloadedBytes = 0
   const startTime = Date.now()
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    const canContinue = fileStream.write(value)
-    downloadedBytes += value.length
+      const canContinue = fileStream.write(value)
+      downloadedBytes += value.length
 
-    // Handle backpressure - wait for drain if buffer is full
-    if (!canContinue) {
-      await new Promise<void>((resolve, reject) => {
-        const onDrain = () => {
-          fileStream.removeListener('error', onError)
-          resolve()
-        }
-        const onError = (err: Error) => {
-          fileStream.removeListener('drain', onDrain)
-          reject(err)
-        }
-        fileStream.once('drain', onDrain)
-        fileStream.once('error', onError)
-      })
+      // Handle backpressure - wait for drain if buffer is full
+      if (!canContinue) {
+        await new Promise<void>((resolve, reject) => {
+          const onDrain = () => {
+            fileStream.removeListener('error', onError)
+            resolve()
+          }
+          const onError = (err: Error) => {
+            fileStream.removeListener('drain', onDrain)
+            reject(err)
+          }
+          fileStream.once('drain', onDrain)
+          fileStream.once('error', onError)
+        })
+      }
+
+      // Progress update
+      if (totalBytes > 0) {
+        const percent = ((downloadedBytes / totalBytes) * 100).toFixed(1)
+        const mbDownloaded = (downloadedBytes / 1024 / 1024).toFixed(1)
+        const mbTotal = (totalBytes / 1024 / 1024).toFixed(1)
+        process.stdout.write(
+          `\r  ${mbDownloaded}MB / ${mbTotal}MB (${percent}%)    `,
+        )
+      } else {
+        const mbDownloaded = (downloadedBytes / 1024 / 1024).toFixed(1)
+        process.stdout.write(`\r  ${mbDownloaded}MB downloaded...    `)
+      }
     }
 
-    // Progress update
-    if (totalBytes > 0) {
-      const percent = ((downloadedBytes / totalBytes) * 100).toFixed(1)
-      const mbDownloaded = (downloadedBytes / 1024 / 1024).toFixed(1)
-      const mbTotal = (totalBytes / 1024 / 1024).toFixed(1)
-      process.stdout.write(
-        `\r  ${mbDownloaded}MB / ${mbTotal}MB (${percent}%)    `,
-      )
-    } else {
-      const mbDownloaded = (downloadedBytes / 1024 / 1024).toFixed(1)
-      process.stdout.write(`\r  ${mbDownloaded}MB downloaded...    `)
-    }
+    // Wait for the file stream to fully close before proceeding
+    await new Promise<void>((resolve, reject) => {
+      fileStream.end()
+      fileStream.on('finish', resolve)
+      fileStream.on('error', reject)
+    })
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  // Wait for the file stream to fully close before proceeding
-  await new Promise<void>((resolve, reject) => {
-    fileStream.end()
-    fileStream.on('finish', resolve)
-    fileStream.on('error', reject)
-  })
 
   console.log() // New line after progress
 
@@ -276,6 +298,9 @@ function copyBinaries(srcBinDir: string, destBinDir: string): void {
   for (const file of files) {
     const srcPath = join(srcBinDir, file)
     const destPath = join(destBinDir, file)
+    if (existsSync(destPath)) {
+      logWarn(`Overwriting existing file: ${destPath} (from ${srcPath})`)
+    }
     cpSync(srcPath, destPath, { recursive: true })
   }
 }
@@ -405,17 +430,15 @@ async function repackage(
           extractDir,
         )
 
-        if (mongoshExtractDir) {
-          // Find mongosh directory (extracts to mongosh-VERSION-PLATFORM/)
-          const mongoshDir = findExtractedDir(mongoshExtractDir, 'mongosh-')
-          if (mongoshDir) {
-            const mongoshBinDir = join(mongoshExtractDir, mongoshDir, 'bin')
-            logInfo('Copying mongosh binaries...')
-            copyBinaries(mongoshBinDir, join(bundleDir, 'bin'))
-            logSuccess('mongosh bundled')
-          } else {
-            logWarn('Could not find mongosh directory')
-          }
+        // Find mongosh directory (extracts to mongosh-VERSION-PLATFORM/)
+        const mongoshDir = findExtractedDir(mongoshExtractDir, 'mongosh-')
+        if (mongoshDir) {
+          const mongoshBinDir = join(mongoshExtractDir, mongoshDir, 'bin')
+          logInfo('Copying mongosh binaries...')
+          copyBinaries(mongoshBinDir, join(bundleDir, 'bin'))
+          logSuccess('mongosh bundled')
+        } else {
+          logWarn('Could not find mongosh directory')
         }
       }
     }
@@ -433,20 +456,18 @@ async function repackage(
           extractDir,
         )
 
-        if (toolsExtractDir) {
-          // Find database-tools directory
-          const toolsDir = findExtractedDir(
-            toolsExtractDir,
-            'mongodb-database-tools-',
-          )
-          if (toolsDir) {
-            const toolsBinDir = join(toolsExtractDir, toolsDir, 'bin')
-            logInfo('Copying database-tools binaries...')
-            copyBinaries(toolsBinDir, join(bundleDir, 'bin'))
-            logSuccess('database-tools bundled')
-          } else {
-            logWarn('Could not find database-tools directory')
-          }
+        // Find database-tools directory
+        const toolsDir = findExtractedDir(
+          toolsExtractDir,
+          'mongodb-database-tools-',
+        )
+        if (toolsDir) {
+          const toolsBinDir = join(toolsExtractDir, toolsDir, 'bin')
+          logInfo('Copying database-tools binaries...')
+          copyBinaries(toolsBinDir, join(bundleDir, 'bin'))
+          logSuccess('database-tools bundled')
+        } else {
+          logWarn('Could not find database-tools directory')
         }
       }
     }
