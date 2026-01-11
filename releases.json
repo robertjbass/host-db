@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-11T17:55:58.620Z",
+  "lastUpdated": "2026-01-11T22:33:21.839Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -585,32 +585,32 @@
       "3.51.2": {
         "version": "3.51.2",
         "releaseTag": "sqlite-3.51.2",
-        "releasedAt": "2026-01-11T03:49:36Z",
+        "releasedAt": "2026-01-11T22:33:08Z",
         "platforms": {
           "darwin-arm64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/sqlite-3.51.2/sqlite-3.51.2-darwin-arm64.tar.gz",
-            "sha256": "211ca1f272d7660376032b077374df265494d97be74fb7051221bba3cb65bdbf",
-            "size": 4517875
+            "sha256": "57851b00eabc120794a6fd9d5fb90e86344cf016cd6f9de07b7775fc41efdabc",
+            "size": 4517876
           },
           "darwin-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/sqlite-3.51.2/sqlite-3.51.2-darwin-x64.tar.gz",
-            "sha256": "a70c7cd9151e7bb3d58e64449f8f5184157bcc79a7f4a37c29f8fad8c8fa5794",
-            "size": 4428496
+            "sha256": "de57ba15ac8e94d6f9c3e286dd46fdc905b6fba7d4f555d29c8d71b444c1d049",
+            "size": 4428498
           },
           "linux-arm64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/sqlite-3.51.2/sqlite-3.51.2-linux-arm64.tar.gz",
-            "sha256": "368860e31a21109fb209a009a5b183ecdff3fadcbd439b6ad7a3682cdfafdec4",
-            "size": 1004410
+            "sha256": "e2ba9c4efb237b337901d3c451e02acde53ec623c8b5b647a01d751d9ecca611",
+            "size": 943054
           },
           "linux-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/sqlite-3.51.2/sqlite-3.51.2-linux-x64.tar.gz",
-            "sha256": "a71f5cc496fc4909c75909dbbef9b5cb3778c021da16297b4dfc4739b51feb81",
-            "size": 4196989
+            "sha256": "72627c147439e2b002371203c1766c9579becd7d5cef1c09fba861fbbab401a7",
+            "size": 952025
           },
           "win32-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/sqlite-3.51.2/sqlite-3.51.2-win32-x64.zip",
-            "sha256": "ec4ab5789e652d32fbc00ccec74c9a5786edc4d1e45b0290a4e191bc8f4ddacb",
-            "size": 6460003
+            "sha256": "55067f6999c8817a400c80ce52a0b547e5ea0c3c314cc9c076caf03fd90e84ae",
+            "size": 6460002
           }
         }
       }
