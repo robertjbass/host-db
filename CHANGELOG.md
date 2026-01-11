@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.2] - 2026-01-11
+
+### Added
+
+- **Release reconciliation script** (`pnpm reconcile:releases`)
+  - Validates `releases.json` against actual GitHub releases
+  - Removes stale entries for releases that no longer exist (deleted binaries)
+  - Supports `--dry-run` flag to preview changes without modifying
+  - Handles pagination for repositories with many releases
+  - Uses `GITHUB_TOKEN` env var if available to avoid rate limits
+
+### Changed
+
+- **`update:releases` script** now automatically runs reconciliation after appending new releases
+  - Ensures `releases.json` stays in sync with GitHub even when releases are deleted
+
 ## [0.9.1] - 2026-01-11
 
 ### Added
