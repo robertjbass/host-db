@@ -273,12 +273,18 @@ function extractArchive(
   } else if (format === 'zip') {
     if (process.platform === 'win32') {
       // Use PowerShell's Expand-Archive on Windows (always available)
+      // Pass arguments separately to avoid command injection via path characters
       execFileSync(
         'powershell',
         [
           '-NoProfile',
           '-Command',
-          `Expand-Archive -Path '${sourcePath}' -DestinationPath '${destDir}' -Force`,
+          'Expand-Archive',
+          '-Path',
+          sourcePath,
+          '-DestinationPath',
+          destDir,
+          '-Force',
         ],
         { stdio: 'inherit' },
       )
