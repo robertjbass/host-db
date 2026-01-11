@@ -273,12 +273,15 @@ function extractArchive(
   } else if (format === 'zip') {
     if (process.platform === 'win32') {
       // Use PowerShell's Expand-Archive on Windows (always available)
+      // Escape single quotes in paths for PowerShell (defense-in-depth)
+      const escapedSourcePath = sourcePath.replace(/'/g, "''")
+      const escapedDestDir = destDir.replace(/'/g, "''")
       execFileSync(
         'powershell',
         [
           '-NoProfile',
           '-Command',
-          `Expand-Archive -Path '${sourcePath}' -DestinationPath '${destDir}' -Force`,
+          `Expand-Archive -Path '${escapedSourcePath}' -DestinationPath '${escapedDestDir}' -Force`,
         ],
         { stdio: 'inherit' },
       )
@@ -367,8 +370,12 @@ async function repackage(
   // Verify required commands exist before starting
   verifyCommand('tar')
   if (platform.startsWith('win32')) {
-    // Windows uses 'zip' for output archive; extraction uses PowerShell (always available)
+    // Windows output uses zip format
     verifyCommand('zip')
+    // Windows downloads are .zip - on non-Windows hosts, we use unzip to extract
+    if (process.platform !== 'win32') {
+      verifyCommand('unzip')
+    }
   } else if (platform.startsWith('darwin')) {
     // macOS components (mongosh, database-tools) use .zip format
     verifyCommand('unzip')
