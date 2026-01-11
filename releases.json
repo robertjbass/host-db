@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-10T23:22:01.859Z",
+  "lastUpdated": "2026-01-11T01:38:37.817Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -519,32 +519,32 @@
       "8.2.3": {
         "version": "8.2.3",
         "releaseTag": "mongodb-8.2.3",
-        "releasedAt": "2026-01-08T08:22:31Z",
+        "releasedAt": "2026-01-11T01:38:24Z",
         "platforms": {
           "darwin-arm64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.2.3/mongodb-8.2.3-darwin-arm64.tar.gz",
-            "sha256": "a07ccb603689a4ce82152bda4d28c9e8f43938f7a98103b8e7a7fddda990e746",
-            "size": 79893144
+            "sha256": "6c5fb1379cbaa49b3dec28989d58022aabd7ded9ad20e83fc2f978a539a7ff72",
+            "size": 224549633
           },
           "darwin-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.2.3/mongodb-8.2.3-darwin-x64.tar.gz",
-            "sha256": "56990eede99a936e682e6d272a0deda00406bde9e97c8aec64ea94280030410c",
-            "size": 87309836
+            "sha256": "ced88f0bb091b44087adc1c2f08559e6cf612b3d58edb2bcd4cbef415a97204d",
+            "size": 242358694
           },
           "linux-arm64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.2.3/mongodb-8.2.3-linux-arm64.tar.gz",
-            "sha256": "93b564150118ea9237f913bd4645668f7fe6c9ca7aadcaac271a8e2aeeed8ed2",
-            "size": 120120172
+            "sha256": "1928d50fe4d4383fd79f806a6ae58dcd43e3462f38ba36a1ee72ab40d99946ba",
+            "size": 270283467
           },
           "linux-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.2.3/mongodb-8.2.3-linux-x64.tar.gz",
-            "sha256": "faafd7b894a06e851e3c820c77638e39e3f6ae7514fd0d97561193d26e9691dc",
-            "size": 128086906
+            "sha256": "3fb4ccebe7357b97bb986e234c3436e099fd9f139f41c23a27d46ba34e74b3a6",
+            "size": 285607517
           },
           "win32-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/mongodb-8.2.3/mongodb-8.2.3-win32-x64.zip",
-            "sha256": "448cbdc19be62d31617c8bceab15e20a35fd50fcf22ada89d6f7ccf56a90d240",
-            "size": 820547907
+            "sha256": "b2a1ef17a1e5e1e90ef280d664c5ca36065ede7c0f2c2e458c9bf3239c37ce25",
+            "size": 945022319
           }
         }
       }
