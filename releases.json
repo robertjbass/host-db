@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/releases.schema.json",
   "repository": "robertjbass/hostdb",
-  "lastUpdated": "2026-01-12T07:34:34.001Z",
+  "lastUpdated": "2026-01-12T07:38:34.165Z",
   "databases": {
     "mysql": {
       "8.4.3": {
@@ -173,27 +173,27 @@
         "platforms": {
           "darwin-arm64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-15.15.0/postgresql-15.15.0-darwin-arm64.tar.gz",
-            "sha256": "7a17758868a258ec8ae07b7b43a87b54e3b2218990c5263a6cea2d0f6538a193",
-            "size": 10131087
+            "sha256": "4f0908b45fa87c22e5926504944b69cb7ed51676f7532d9f6de706c6e490e046",
+            "size": 10131037
           },
           "darwin-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-15.15.0/postgresql-15.15.0-darwin-x64.tar.gz",
-            "sha256": "e93a32af4fb37acf644db6018c4dc1ed9bda4c40077ad61a034a1e77646d3734",
-            "size": 9840579
+            "sha256": "d707692702067fd0ce5fa84a313e5dc391901fb2c908ebf715445fa531481436",
+            "size": 9840766
           },
           "linux-arm64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-15.15.0/postgresql-15.15.0-linux-arm64.tar.gz",
-            "sha256": "e5dd6c54039a584d42217e44133598d8a438e1081b91e189dba900a74361594a",
-            "size": 136002674
+            "sha256": "c4385f7eee52ccd03f6e5647131430cdaa64111c723cc3888ec731da54127383",
+            "size": 135986967
           },
           "linux-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-15.15.0/postgresql-15.15.0-linux-x64.tar.gz",
-            "sha256": "ae614266baa06443855fb8c25499570057cbe4a56d63ef9266a68285e5ff4f3e",
-            "size": 10841876
+            "sha256": "6f6602b634d20cfaf3f3ad516635817b303a30dd68568da4fb9454aa6406d74f",
+            "size": 10839490
           },
           "win32-x64": {
             "url": "https://github.com/robertjbass/hostdb/releases/download/postgresql-15.15.0/postgresql-15.15.0-win32-x64.zip",
-            "sha256": "41af8f42a4c8f7e5e13a3d12f01de39b387448bf22409a444c8b1af9cb6bb087",
+            "sha256": "a53e703e9410055287dcceaff03c5f677f6ade58da1fe521eed7f1f07f8a5e73",
             "size": 324647117
           }
         }
