@@ -257,13 +257,22 @@ RUN apt-get update && apt-get install -y \
 RUN cmake -DCMAKE_TOOLCHAIN_FILE=mingw-w64.cmake ...
 ```
 
-### Wine + Native Compiler
+### Wine + MSVC Compiler
 
-**Concept:** Run Windows compiler (MSVC) under Wine on Linux.
+**Concept:** Run Microsoft Visual C++ (MSVC) compiler under Wine on Linux to produce native Windows binaries.
+
+**Important clarification:** Wine runs *Windows programs on Linux* — it doesn't help Windows users run Linux binaries. This strategy is for **building** Windows binaries from a Linux CI runner, not for end-user runtime.
 
 **When to consider:**
-- Project requires MSVC-specific features
+- Project requires MSVC-specific features (Windows SDK, ATL, MFC)
 - Need to match official Windows builds exactly
+- MinGW/Clang produce incompatible binaries
+
+**Challenges:**
+- Complex setup (Wine + MSVC installation)
+- Licensing concerns with redistributing MSVC
+- Slower than native Windows runner
+- May not work for all projects
 
 ### WSL Build + Copy
 
