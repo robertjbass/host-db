@@ -152,6 +152,8 @@ Reference implementations:
 
 Skip if all platforms have official binaries.
 
+**Windows builds:** If no official Windows binary exists, we attempt to build from source using cross-compilation or compatibility layers. See [WINDOWS_BUILD.md](./WINDOWS_BUILD.md) for detailed strategies (Cygwin, MSYS2 CLANG64, etc.).
+
 ### 4.1 Create Dockerfile
 
 - [ ] Create `builds/<database>/Dockerfile`
@@ -227,7 +229,7 @@ For each platform, ensure correct runner and build type:
 | linux-arm64 | ubuntu-latest | docker |
 | darwin-x64 | macos-13 | native |
 | darwin-arm64 | macos-14 | native |
-| win32-x64 | ubuntu-latest | download |
+| win32-x64 | windows-latest | download or source build (see [WINDOWS_BUILD.md](./WINDOWS_BUILD.md)) |
 
 ### 5.3 Version input
 
@@ -359,6 +361,7 @@ The sync script automatically updates the version dropdown in the workflow file.
 
 | Issue | Solution |
 |-------|----------|
+| No official Windows binary | See [WINDOWS_BUILD.md](./WINDOWS_BUILD.md) for Cygwin/MSYS2 strategies |
 | Download URL 403/404 | Check if URL requires authentication or has rate limits |
 | Docker build fails | Check build dependencies are installed |
 | macOS build fails | Verify Homebrew dependencies in workflow |

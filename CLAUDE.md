@@ -192,7 +192,7 @@ Proceed with build (or fail with helpful error)
 | linux-arm64 | Docker build (QEMU emulation) |
 | darwin-x64 | Native build on macos-15-intel runner |
 | darwin-arm64 | Native build on macos-14 runner |
-| win32-x64 | Download official binary |
+| win32-x64 | Download official binary or source build (see [WINDOWS_BUILD.md](./WINDOWS_BUILD.md)) |
 
 ### macOS Native Build Considerations
 
@@ -228,6 +228,8 @@ This creates:
 Then follow the printed instructions to implement the download logic.
 
 See [CHECKLIST.md](./CHECKLIST.md) for the complete checklist.
+
+**Windows builds:** If no official Windows binary exists, see [WINDOWS_BUILD.md](./WINDOWS_BUILD.md) for strategies (Cygwin, MSYS2 CLANG64, cross-compilation, etc.).
 
 ### Download Script Requirements
 
