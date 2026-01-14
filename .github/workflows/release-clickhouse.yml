@@ -339,6 +339,8 @@ jobs:
           cmake .. \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_LINKER=ld.lld \
+            -DLINKER_NAME=ld.lld \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
             -DCOMPILER_CACHE=disabled \
