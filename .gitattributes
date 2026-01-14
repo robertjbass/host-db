@@ -1,0 +1,3 @@
+# Auto-resolve merge conflicts for auto-generated files
+# Always keep "ours" (the current branch version) during merges/rebases
+releases.json merge=ours
