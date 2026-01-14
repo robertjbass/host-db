@@ -313,18 +313,18 @@ jobs:
 
           # Patch cmake/target.cmake to support Windows
           # ClickHouse only supports Linux/Darwin/FreeBSD/Android/SunOS
-          # We add Windows support using a DUAL-FLAG approach:
-          #   - OS_LINUX=1: Required because ClickHouse has no Windows code paths.
-          #     The entire codebase uses #ifdef OS_LINUX guards. Without this flag,
-          #     compilation fails immediately. MSYS2 provides POSIX compatibility
-          #     that can handle many Linux-isms.
-          #   - OS_WINDOWS=1: Marker flag for any Windows-specific edge cases.
-          # This intentional tradeoff may cause conflicts in rare cases where code
-          # checks both flags, but it's the only viable path since ClickHouse has
-          # zero native Windows support.
+          #
+          # KEY INSIGHT: We need to separate CMake variables from preprocessor defines.
+          #   - CMake variable OS_LINUX triggers cmake/linux/default_libs.cmake which
+          #     sets Linux linker flags (-lrt, -ldl, -lpthread) that don't exist on Windows.
+          #   - Preprocessor define OS_LINUX is needed for C++ code compilation since
+          #     ClickHouse uses #ifdef OS_LINUX guards everywhere.
+          #
+          # SOLUTION: Only set preprocessor defines, NOT CMake variables for OS_LINUX.
+          # This lets C++ code compile while avoiding Linux-specific CMake configuration.
           echo ""
           echo "Patching cmake/target.cmake for Windows support..."
-          WINDOWS_PATCH='elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")\n    set (OS_LINUX 1)\n    set (OS_WINDOWS 1)\n    add_definitions(-D OS_LINUX)\n    add_definitions(-D OS_WINDOWS)\nelse ()'
+          WINDOWS_PATCH='elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")\n    # Only set OS_WINDOWS as CMake var - NOT OS_LINUX (avoids Linux cmake includes)\n    set (OS_WINDOWS 1)\n    # But define OS_LINUX for preprocessor so C++ code compiles\n    add_definitions(-D OS_LINUX)\n    add_definitions(-D OS_WINDOWS)\nelse ()'
           sed -i "s/^else ()$/${WINDOWS_PATCH}/" cmake/target.cmake
           echo "Patched target.cmake:"
           grep -n -A2 "Windows" cmake/target.cmake || true
@@ -369,6 +369,7 @@ jobs:
             -DENABLE_MONGODB=OFF \
             -DENABLE_POSTGRESQL=OFF \
             -DENABLE_LIBURING=OFF \
+            -DENABLE_PARQUET=OFF \
             -GNinja || {
               echo "::warning::CMake configuration failed. This is expected for experimental Windows builds."
               echo "::warning::ClickHouse does not officially support Windows."
