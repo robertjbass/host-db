@@ -375,12 +375,13 @@ jobs:
           # Patch OpenSSL bn_div.c to disable broken inline assembly on Windows
           # The issue is that the inline asm uses "divq %4" which generates "divq %r11d"
           # (64-bit instruction with 32-bit register) - this is broken on MSYS2/Windows.
-          # We undefine the ASM macros at the top of the file to use pure C fallback.
+          # The bn_div_words macro is enabled by SIXTY_FOUR_BIT or SIXTY_FOUR_BIT_LONG,
+          # so we need to undefine those to force the C fallback.
           echo ""
           echo "Patching OpenSSL bn_div.c to disable broken inline assembly..."
           OPENSSL_BN_DIV="contrib/openssl/crypto/bn/bn_div.c"
           if [ -f "$OPENSSL_BN_DIV" ]; then
-            sed -i '1i\/* Disable broken inline assembly on Windows */\n#undef OPENSSL_BN_ASM_MONT\n#undef OPENSSL_BN_ASM_MONT5\n#undef OPENSSL_BN_ASM_GF2m\n#undef BN_DIV3W\n' "$OPENSSL_BN_DIV"
+            sed -i '1i\/* Disable broken inline assembly on Windows */\n#undef SIXTY_FOUR_BIT_LONG\n#undef SIXTY_FOUR_BIT\n#undef OPENSSL_BN_ASM_MONT\n#undef OPENSSL_BN_ASM_MONT5\n#undef OPENSSL_BN_ASM_GF2m\n#undef BN_DIV3W\n' "$OPENSSL_BN_DIV"
             echo "Patched bn_div.c (disabled inline assembly)"
           fi
 

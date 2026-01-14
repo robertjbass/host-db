@@ -1,0 +1,599 @@
+# Windows Build Strategies
+
+This document covers strategies for building database binaries for Windows when official Windows binaries don't exist.
+
+## Overview
+
+Many database projects are developed primarily for Unix-like systems and don't provide official Windows binaries. When this happens, we have several strategies to create Windows builds using cross-compilation or compatibility layers.
+
+## Current Strategies
+
+### 1. Cygwin (POSIX Emulation Layer)
+
+**Used by:** Valkey
+
+**How it works:** Cygwin provides a POSIX-compatible environment on Windows. Binaries built with Cygwin require the Cygwin DLL (`cygwin1.dll`) and related libraries at runtime.
+
+**Pros:**
+- Easier to build software that heavily relies on POSIX APIs
+- Good compatibility with Unix-centric codebases
+- Mature toolchain with extensive package support
+
+**Cons:**
+- Requires bundling Cygwin DLLs with the binary
+- Slight performance overhead due to POSIX emulation
+- Not "native" Windows binaries
+
+**Implementation:**
+```yaml
+# GitHub Actions setup
+- name: Setup Cygwin
+  uses: cygwin/cygwin-install-action@master
+  with:
+    packages: >-
+      make
+      gcc-core
+      gcc-g++
+      libssl-devel
+      pkg-config
+      zip
+
+# Build shell
+shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr '{0}'
+env:
+  CYGWIN: winsymlinks:native
+```
+
+**Required DLLs to bundle:**
+```bash
+cp /usr/bin/cygwin1.dll      output/bin/
+cp /usr/bin/cygssl-3.dll     output/bin/
+cp /usr/bin/cygcrypto-3.dll  output/bin/
+cp /usr/bin/cygz.dll         output/bin/
+cp /usr/bin/cyggcc_s-seh-1.dll output/bin/
+```
+
+**Inspiration:** The Valkey Windows build strategy was inspired by [redis-windows](https://github.com/redis-windows/redis-windows), which provides Windows builds of Redis using Cygwin.
+
+---
+
+### 2. MSYS2 CLANG64 (Native Windows with Clang/LLVM)
+
+**Used by:** ClickHouse (experimental)
+
+**How it works:** MSYS2 provides multiple environments. CLANG64 uses Clang/LLVM to produce native Windows binaries without POSIX emulation. The resulting `.exe` files don't require Cygwin DLLs.
+
+**Pros:**
+- Produces native Windows executables
+- No runtime DLL dependencies (beyond standard Windows libraries)
+- Modern Clang/LLVM toolchain with good optimization
+
+**Cons:**
+- More complex setup for POSIX-heavy codebases
+- May require extensive patching for Unix-specific code
+- Some projects may not compile at all
+
+**Implementation:**
+```yaml
+# GitHub Actions setup
+- name: Setup MSYS2
+  uses: msys2/setup-msys2@v2
+  with:
+    msystem: CLANG64
+    update: true
+    install: >-
+      mingw-w64-clang-x86_64-clang
+      mingw-w64-clang-x86_64-lld
+      mingw-w64-clang-x86_64-cmake
+      mingw-w64-clang-x86_64-ninja
+      mingw-w64-clang-x86_64-openssl
+      mingw-w64-clang-x86_64-zlib
+      git
+      zip
+
+# Build shell
+shell: msys2 {0}
+```
+
+**Common patches needed:**
+1. **POSIX compatibility header** - Stub out missing functions like `sysconf()`, `getpagesize()`, `sigaltstack()`
+2. **Macro conflicts** - Windows headers define macros like `NO_ERROR` that conflict with enums
+3. **Architecture detection** - Some projects don't recognize Windows' `AMD64` (uppercase)
+4. **Linker flags** - Remove Unix-specific flags like `-rdynamic`
+
+---
+
+### 3. MSYS2 MINGW64 (Native Windows with GCC)
+
+**Not currently used, but available as alternative**
+
+**How it works:** Similar to CLANG64 but uses GCC instead of Clang. Produces native Windows binaries.
+
+**When to consider:**
+- Project has GCC-specific code or build requirements
+- Clang has issues with specific code patterns
+- Need GCC extensions
+
+**Implementation:**
+```yaml
+- name: Setup MSYS2
+  uses: msys2/setup-msys2@v2
+  with:
+    msystem: MINGW64
+    install: >-
+      mingw-w64-x86_64-gcc
+      mingw-w64-x86_64-cmake
+      # ... other packages with mingw-w64-x86_64- prefix
+```
+
+---
+
+## Choosing a Strategy
+
+| Factor | Cygwin | MSYS2 CLANG64 | MSYS2 MINGW64 |
+|--------|--------|---------------|---------------|
+| **POSIX compatibility** | Excellent | Requires patching | Requires patching |
+| **Native Windows binary** | No (needs DLLs) | Yes | Yes |
+| **Build complexity** | Lower | Higher | Higher |
+| **Runtime overhead** | Slight | None | None |
+| **Best for** | POSIX-heavy apps | Modern C++ projects | GCC-specific projects |
+
+**Decision tree:**
+1. Does the project have heavy POSIX dependencies (signals, fork, etc.)? → **Cygwin**
+2. Is it a modern C++ project with CMake? → **MSYS2 CLANG64**
+3. Does it require GCC-specific features? → **MSYS2 MINGW64**
+4. Is minimal patching a priority? → **Cygwin**
+5. Is native performance critical? → **MSYS2 (either)**
+
+---
+
+## Common Workarounds
+
+### POSIX Compatibility Header
+
+For MSYS2 builds, create a compatibility header to stub missing POSIX functions:
+
+```c
+#pragma once
+#ifdef _WIN32
+
+#include <stddef.h>
+
+// sysconf constants
+#ifndef _SC_PAGESIZE
+#define _SC_PAGESIZE 1
+#endif
+#ifndef _SC_NPROCESSORS_ONLN
+#define _SC_NPROCESSORS_ONLN 2
+#endif
+
+static inline int getpagesize(void) { return 4096; }
+static inline long sysconf(int name) {
+    switch(name) {
+        case _SC_PAGESIZE: return 4096;
+        case _SC_NPROCESSORS_ONLN: return 4;
+        default: return -1;
+    }
+}
+
+// Signal stack stubs
+#ifndef SIGSTKSZ
+#define SIGSTKSZ 8192
+#endif
+typedef struct { void *ss_sp; int ss_flags; size_t ss_size; } stack_t;
+static inline int sigaltstack(const stack_t *ss, stack_t *old_ss) {
+    (void)ss; (void)old_ss; return 0;
+}
+
+#endif // _WIN32
+```
+
+Include it globally via CMake:
+```cmake
+-DCMAKE_CXX_FLAGS="-include /path/to/compat_windows.h"
+```
+
+### Windows Macro Conflicts
+
+Windows headers (`windows.h`, `winerror.h`) define macros that conflict with code:
+- `NO_ERROR` - conflicts with enums
+- `OPTIONAL` - conflicts with type names
+- `IMAGE_FILE_MACHINE_*` - conflicts with LLVM enums
+
+**Solution:** Avoid including `<windows.h>` in compatibility headers, or patch conflicting code:
+```bash
+sed -i 's/NO_ERROR/FEATURE_NO_ERROR/g' path/to/file.h
+```
+
+### Architecture Detection
+
+Some projects only check lowercase architecture names:
+```cmake
+# Original (doesn't match Windows)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64|x86_64")
+
+# Patched (includes Windows AMD64)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64|AMD64|x86_64")
+```
+
+### Removing Unix-Specific Linker Flags
+
+```bash
+# Remove -rdynamic (not supported on Windows)
+sed -i 's/-rdynamic//' src/Makefile
+```
+
+### Disabling Broken Inline Assembly
+
+Some inline assembly doesn't work correctly on Windows/MSYS2:
+```c
+/* Add at top of file to disable broken asm */
+#undef OPENSSL_BN_ASM_MONT
+#undef BN_DIV3W
+```
+
+---
+
+## Future Strategies to Explore
+
+### Cross-Compilation from Linux
+
+**Concept:** Use MinGW-w64 cross-compiler on Linux to build Windows binaries.
+
+**Potential benefits:**
+- Faster builds (no Windows runner overhead)
+- More familiar Linux build environment
+- Can use Docker for reproducibility
+
+**Implementation sketch:**
+```dockerfile
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y \
+    mingw-w64 \
+    cmake \
+    ninja-build
+
+# Cross-compile for Windows
+RUN cmake -DCMAKE_TOOLCHAIN_FILE=mingw-w64.cmake ...
+```
+
+### Wine + Native Compiler
+
+**Concept:** Run Windows compiler (MSVC) under Wine on Linux.
+
+**When to consider:**
+- Project requires MSVC-specific features
+- Need to match official Windows builds exactly
+
+### WSL Build + Copy
+
+**Concept:** Build in WSL on Windows runner, copy binaries out.
+
+**Limitation:** Produces Linux binaries, not Windows binaries. Only useful if the project supports Windows natively but build system is Unix-only.
+
+### Pre-built Docker Images
+
+**Concept:** Maintain Docker images with pre-configured Windows cross-compilation toolchains.
+
+**Benefits:**
+- Faster CI (no toolchain setup)
+- Reproducible builds
+- Can cache complex patches
+
+### Zig as Cross-Compiler
+
+**Concept:** Use Zig's cross-compilation capabilities to target Windows from any platform.
+
+**Potential benefits:**
+- Single toolchain for all targets
+- Drop-in replacement for GCC/Clang
+- Excellent cross-compilation support
+
+**Implementation sketch:**
+```bash
+# Cross-compile C project for Windows from Linux
+CC="zig cc -target x86_64-windows-gnu" ./configure
+make
+```
+
+---
+
+## Iterating on Build Failures
+
+Windows source builds often require multiple iterations to get working. Use this workflow to track progress:
+
+### Setup
+
+1. **Create tracking files** (already in `.gitignore`):
+   - `<database>-windows-build-log.md` — Track iterations, timing, and changes
+   - `err.log` — Paste full build logs for analysis
+
+2. **Log format** for the markdown file:
+   ```markdown
+   # ClickHouse Windows Build Log
+
+   ## Iteration 1 - 2024-01-14
+   **Duration:** Failed at 45 min
+   **Changes:** Initial attempt with MSYS2 CLANG64
+   **Result:** CMake configuration failed - missing Threads package
+   **Next:** Add find_package(Threads) to CMakeLists.txt
+
+   ## Iteration 2 - 2024-01-14
+   **Duration:** Failed at 52 min
+   **Changes:** Added find_package(Threads), patched arch.cmake
+   **Result:** Build failed - NO_ERROR macro conflict with Windows headers
+   **Next:** Rename NO_ERROR to FEATURE_NO_ERROR in LLVM files
+   ```
+
+3. **Track key metrics**:
+   - Time to failure (progress = longer before failure)
+   - Which phase failed (configure vs compile vs link)
+   - Specific error messages
+
+### Why This Helps
+
+- **Avoid re-running failed experiments** — Know what you've already tried
+- **Measure progress** — Build failing at 2 hours is better than failing at 5 minutes
+- **Preserve context** — GitHub Actions logs expire; your notes don't
+- **Copy logs to `err.log`** — Easier to search/grep than terminal scrollback
+
+---
+
+## Troubleshooting
+
+### Build fails with "undefined reference to `fork`"
+
+The project uses `fork()` which doesn't exist on Windows. Options:
+1. Use Cygwin (provides fork emulation)
+2. Disable features that require fork
+3. Patch code to use Windows alternatives
+
+### Linker errors about `-lpthread`
+
+Windows doesn't have libpthread. Options:
+1. Use Cygwin (provides pthreads)
+2. Use MSYS2's winpthreads: `mingw-w64-clang-x86_64-winpthreads`
+3. Patch to use Windows threads API
+
+### "No rule to make target" for `.exe`
+
+The build system doesn't know it's targeting Windows. Check:
+1. CMake's `CMAKE_SYSTEM_NAME` is set correctly
+2. Autotools has correct `--host` flag
+3. Build scripts detect Windows properly
+
+### DLL not found at runtime
+
+For Cygwin builds, ensure all required DLLs are bundled:
+```bash
+# Find dependencies
+ldd output/bin/myapp.exe | grep cyg
+```
+
+---
+
+## Last Resort: WSL Fallback
+
+If all Windows build strategies fail and a native binary truly cannot be produced, the final fallback is to **not provide a Windows binary** and instead guide users to WSL.
+
+### Implementation in hostdb
+
+In `sources.json`, mark the platform as unsupported with a note:
+
+```json
+{
+  "win32-x64": {
+    "sourceType": "unsupported",
+    "note": "Windows native build not possible. Use WSL with linux-x64 binary."
+  }
+}
+```
+
+### Implementation in SpinDB (CLI consumer)
+
+When a user requests a database that has no Windows binary:
+
+```typescript
+// Example CLI handling
+if (platform === 'win32-x64' && !release.platforms['win32-x64']) {
+  console.warn(`
+⚠️  Windows binary unavailable for ${database} ${version}
+
+This database does not support native Windows builds.
+
+Recommended alternatives:
+  1. Use WSL (Windows Subsystem for Linux):
+     wsl --install
+     # Then run spindb inside WSL
+
+  2. Use Docker Desktop for Windows:
+     docker run -p 5432:5432 ${database}:${version}
+
+  3. Use a Linux VM or remote server
+
+The linux-x64 binary works in WSL without modification.
+`);
+  process.exit(1);
+}
+```
+
+### When to Use This
+
+Only after exhausting:
+1. ✗ Official Windows binaries (none available)
+2. ✗ Third-party Windows builds (none trusted)
+3. ✗ Cygwin build (failed or impractical)
+4. ✗ MSYS2 CLANG64/MINGW64 build (failed)
+5. ✗ Cross-compilation from Linux (failed)
+
+Document the failure in this file for future reference — someone may find a solution later.
+
+---
+
+## Code References
+
+### Valkey Cygwin Build (Working Example)
+
+**File:** `.github/workflows/release-valkey.yml`
+
+**Cygwin setup:**
+```yaml
+- name: Setup Cygwin
+  uses: cygwin/cygwin-install-action@master
+  with:
+    packages: >-
+      make
+      gcc-core
+      gcc-g++
+      libssl-devel
+      pkg-config
+      zip
+      curl
+```
+
+**Build shell configuration:**
+```yaml
+shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr '{0}'
+env:
+  CYGWIN: winsymlinks:native
+```
+
+**Key patches applied:**
+```bash
+# Enable GNU extensions in dlfcn.h (exposes Dl_info and dladdr)
+sed -i 's/\_\_GNU\_VISIBLE/1/' /usr/include/dlfcn.h
+
+# Remove module_tests from build (not supported on Windows)
+sed -i 's/all: \(.*\) module_tests$/all: \1/' src/Makefile
+
+# Remove -rdynamic flag (Cygwin linker doesn't support it)
+sed -i 's/-rdynamic//' src/Makefile
+```
+
+**Build command:**
+```bash
+make -j$(nproc) BUILD_TLS=yes CFLAGS="-Wno-char-subscripts -O0"
+```
+
+**Bundling Cygwin DLLs:**
+```bash
+cp /usr/bin/cygwin1.dll valkey/bin/
+cp /usr/bin/cygssl-3.dll valkey/bin/
+cp /usr/bin/cygcrypto-3.dll valkey/bin/
+cp /usr/bin/cygz.dll valkey/bin/
+cp /usr/bin/cyggcc_s-seh-1.dll valkey/bin/
+```
+
+**Packaging (zip for Windows):**
+```bash
+zip -r "../dist/valkey-${VERSION}-${PLATFORM}.zip" valkey
+```
+
+---
+
+### ClickHouse MSYS2 CLANG64 Build (Experimental)
+
+**File:** `.github/workflows/release-clickhouse.yml`
+
+**MSYS2 setup:**
+```yaml
+- name: Setup MSYS2
+  uses: msys2/setup-msys2@v2
+  with:
+    msystem: CLANG64
+    update: true
+    install: >-
+      mingw-w64-clang-x86_64-clang
+      mingw-w64-clang-x86_64-lld
+      mingw-w64-clang-x86_64-cmake
+      mingw-w64-clang-x86_64-ninja
+      mingw-w64-clang-x86_64-openssl
+      mingw-w64-clang-x86_64-zlib
+      mingw-w64-clang-x86_64-zstd
+      git
+      zip
+```
+
+**Build shell:**
+```yaml
+shell: msys2 {0}
+```
+
+**Key patches (ClickHouse-specific):**
+```bash
+# Fix architecture detection (Windows reports AMD64 uppercase)
+sed -i 's/"amd64|x86_64"/"amd64|AMD64|x86_64"/g' cmake/arch.cmake
+
+# Add Windows support to target.cmake
+# (Sets OS_WINDOWS CMake var, defines OS_LINUX for preprocessor)
+
+# Allow custom CMAKE_CXX_FLAGS (ClickHouse normally rejects them)
+sed -i 's/message(FATAL_ERROR/message(WARNING/' PreLoad.cmake
+
+# Add Threads package (needed by abseil-cpp and xz)
+sed -i '/^project(/a\\nfind_package(Threads REQUIRED)\n' CMakeLists.txt
+
+# Fix LLVM NO_ERROR enum conflict with Windows macro
+sed -i 's/NO_ERROR/FEATURE_NO_ERROR/g' contrib/llvm-project/...
+
+# Disable broken OpenSSL inline assembly
+sed -i '1i\#undef BN_DIV3W\n' contrib/openssl/crypto/bn/bn_div.c
+```
+
+**CMake configuration:**
+```bash
+cmake .. \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_CXX_FLAGS="-include ${COMPAT_HEADER}" \
+  -DCMAKE_LINKER=ld.lld \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DENABLE_TESTS=OFF \
+  -DENABLE_EMBEDDED_COMPILER=OFF \
+  -DENABLE_JEMALLOC=OFF \
+  # ... many features disabled for Windows compatibility
+  -GNinja
+```
+
+**Build command:**
+```bash
+ninja clickhouse
+```
+
+**Packaging (native .exe, no DLLs needed):**
+```bash
+cp ClickHouse/build/programs/clickhouse.exe install/clickhouse/bin/
+zip -r "../dist/clickhouse-${VERSION}-${PLATFORM}.zip" clickhouse
+```
+
+---
+
+### Key Differences in Binary Extraction
+
+| Aspect | Cygwin (Valkey) | MSYS2 CLANG64 (ClickHouse) |
+|--------|-----------------|----------------------------|
+| **Output format** | `.exe` + Cygwin DLLs | Native `.exe` only |
+| **Archive format** | `.zip` | `.zip` |
+| **DLL bundling** | Required (`cygwin1.dll`, etc.) | Not needed |
+| **Binary location** | `make install` to PREFIX | CMake build directory |
+| **Symlinks** | Not typically used | May need `.exe` copies |
+
+### Archive Format by Platform
+
+```bash
+# Unix platforms: tar.gz
+tar -czvf "database-${VERSION}-${PLATFORM}.tar.gz" database
+
+# Windows: zip (native convention)
+zip -r "database-${VERSION}-${PLATFORM}.zip" database
+```
+
+---
+
+## References
+
+- [Cygwin](https://www.cygwin.com/) - POSIX compatibility layer
+- [MSYS2](https://www.msys2.org/) - Software distribution and building platform
+- [redis-windows](https://github.com/redis-windows/redis-windows) - Inspiration for Valkey Cygwin build
+- [MinGW-w64](https://www.mingw-w64.org/) - GCC for Windows
+- [Zig Cross-Compilation](https://ziglang.org/learn/overview/#cross-compiling-made-easy)
