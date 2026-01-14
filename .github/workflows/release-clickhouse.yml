@@ -307,8 +307,18 @@ jobs:
           echo ""
           echo "Patching cmake/arch.cmake for Windows AMD64 support..."
           sed -i 's/"amd64|x86_64"/"amd64|AMD64|x86_64"/g' cmake/arch.cmake
-          echo "Patched pattern:"
+          echo "Patched arch.cmake pattern:"
           grep -n "amd64" cmake/arch.cmake || true
+
+          # Patch cmake/target.cmake to support Windows
+          # ClickHouse only supports Linux/Darwin/FreeBSD/Android/SunOS
+          # We add Windows support, treating it like Linux since MSYS2 provides POSIX layer
+          echo ""
+          echo "Patching cmake/target.cmake for Windows support..."
+          WINDOWS_PATCH='elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")\n    set (OS_LINUX 1)\n    set (OS_WINDOWS 1)\n    add_definitions(-D OS_LINUX)\n    add_definitions(-D OS_WINDOWS)\nelse ()'
+          sed -i "s/^else ()$/${WINDOWS_PATCH}/" cmake/target.cmake
+          echo "Patched target.cmake:"
+          grep -n -A2 "Windows" cmake/target.cmake || true
 
           # Configure with CMake
           echo ""
@@ -316,7 +326,7 @@ jobs:
           mkdir -p build && cd build
 
           # Use MSYS2's clang from CLANG64 environment
-          # Override CMAKE_SYSTEM_PROCESSOR because Windows reports AMD64 instead of x86_64
+          # Disable many features that require Linux-specific APIs
           cmake .. \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
@@ -327,6 +337,14 @@ jobs:
             -DENABLE_EMBEDDED_COMPILER=OFF \
             -DENABLE_RUST=OFF \
             -DUSE_STATIC_LIBRARIES=ON \
+            -DENABLE_NURAFT=OFF \
+            -DENABLE_JEMALLOC=OFF \
+            -DENABLE_CLICKHOUSE_ODBC_BRIDGE=OFF \
+            -DENABLE_CLICKHOUSE_LIBRARY_BRIDGE=OFF \
+            -DENABLE_CLICKHOUSE_KEEPER=OFF \
+            -DENABLE_CLICKHOUSE_KEEPER_CONVERTER=OFF \
+            -DENABLE_CLICKHOUSE_SU=OFF \
+            -DENABLE_CLICKHOUSE_DISKS=OFF \
             -GNinja || {
               echo "::warning::CMake configuration failed. This is expected for experimental Windows builds."
               echo "::warning::ClickHouse does not officially support Windows."
