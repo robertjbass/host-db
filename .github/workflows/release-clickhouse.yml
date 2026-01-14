@@ -359,6 +359,19 @@ jobs:
           sed -i '/^project(/a\\n# Added for Windows build - create Threads::Threads target\nset(THREADS_PREFER_PTHREAD_FLAG ON)\nfind_package(Threads REQUIRED)\n' CMakeLists.txt
           echo "Patched CMakeLists.txt (added find_package(Threads))"
 
+          # Patch LLVM TargetParser.h to avoid NO_ERROR enum conflict with Windows macro
+          # NO_ERROR is defined as 0 in Windows winerror.h, but LLVM uses it as an enum value
+          # We rename it to FEATURE_NO_ERROR to avoid the conflict
+          echo ""
+          echo "Patching LLVM TargetParser.h to avoid NO_ERROR macro conflict..."
+          LLVM_TARGET_PARSER="contrib/llvm-project/llvm/include/llvm/TargetParser/TargetParser.h"
+          if [ -f "$LLVM_TARGET_PARSER" ]; then
+            sed -i 's/NO_ERROR/FEATURE_NO_ERROR/g' "$LLVM_TARGET_PARSER"
+            # Also patch the .cpp file that uses the enum
+            sed -i 's/NO_ERROR/FEATURE_NO_ERROR/g' contrib/llvm-project/llvm/lib/TargetParser/TargetParser.cpp
+            echo "Patched TargetParser files (NO_ERROR -> FEATURE_NO_ERROR)"
+          fi
+
           # Create Windows compatibility header with POSIX stubs
           echo ""
           echo "Creating Windows compatibility header..."
@@ -388,9 +401,8 @@ jobs:
             '#ifdef ERROR' \
             '#undef ERROR' \
             '#endif' \
-            '#ifdef NO_ERROR' \
-            '#undef NO_ERROR' \
-            '#endif' \
+            '// Note: NO_ERROR cannot be undef - Windows API code needs it' \
+            '// We patch LLVM source files that use NO_ERROR as enum values instead' \
             '' \
             '#ifndef _SC_PAGESIZE' \
             '#define _SC_PAGESIZE 1' \
