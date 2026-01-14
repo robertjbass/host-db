@@ -388,6 +388,9 @@ jobs:
             '#ifdef ERROR' \
             '#undef ERROR' \
             '#endif' \
+            '#ifdef NO_ERROR' \
+            '#undef NO_ERROR' \
+            '#endif' \
             '' \
             '#ifndef _SC_PAGESIZE' \
             '#define _SC_PAGESIZE 1' \
