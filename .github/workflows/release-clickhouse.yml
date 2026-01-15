@@ -538,6 +538,7 @@ jobs:
           cmake .. \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_FLAGS="-include ${COMPAT_HEADER}" \
             -DCMAKE_CXX_FLAGS="-include ${COMPAT_HEADER}" \
             -DCMAKE_LINKER=ld.lld \
             -DLINKER_NAME=ld.lld \

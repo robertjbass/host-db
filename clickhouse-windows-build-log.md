@@ -5,6 +5,31 @@
 | Change # | Time to Break | Phase | Error Summary | Status |
 |----------|---------------|-------|---------------|--------|
 | 1 | 25:36 | Compile (1866/9265) | `sigset_t` undefined in xz mythread.h | ✅ Fixed |
+| 2 | 25:06 | Compile (1866/9265) | Same - compat header not applied to C files | ✅ Fixed |
+
+---
+
+## Iteration 2 - 2026-01-15
+
+**Duration:** Failed at 25:06 (compile phase, 1866/9265 objects)
+
+**Changes:** Added `sigset_t` typedef to compat_windows.h
+
+**Error:** Same as iteration 1 - `sigset_t` still undefined in xz mythread.h
+
+**Root Cause:**
+- The compat header was only included via `CMAKE_CXX_FLAGS`
+- xz library is **C code** (`.c` files), not C++
+- C files don't receive the `-include compat_windows.h` flag
+
+**Fix Applied:**
+Added `CMAKE_C_FLAGS` with the same include directive:
+```yaml
+-DCMAKE_C_FLAGS="-include ${COMPAT_HEADER}" \
+-DCMAKE_CXX_FLAGS="-include ${COMPAT_HEADER}" \
+```
+
+**Next:** Re-run build
 
 ---
 
