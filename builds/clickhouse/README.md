@@ -12,9 +12,9 @@ ClickHouse is a column-oriented database for real-time analytics and big data pr
 | `linux-arm64` | Official binary | GitHub releases (clickhouse-common-static tarball) |
 | `darwin-x64` | Official binary | GitHub releases (single executable) |
 | `darwin-arm64` | Official binary | GitHub releases (single executable) |
-| `win32-x64` | Source build | **EXPERIMENTAL** - Cygwin on windows-latest |
+| `win32-x64` | Source build | **EXPERIMENTAL** - MSYS2 CLANG64 on windows-latest |
 
-**Note:** ClickHouse does not officially support Windows. Our Windows builds use Cygwin for POSIX compatibility and are experimental. These builds may fail or have limited functionality. For production Windows use, consider WSL.
+**Note:** ClickHouse does not officially support Windows. Our Windows builds use MSYS2 CLANG64 with extensive patches for POSIX compatibility. These builds are experimental and may fail or have limited functionality. For production Windows use, consider WSL.
 
 ## Building
 
@@ -143,12 +143,28 @@ GitHub releases provide single executable files (not tarballs). We wrap these in
 
 ### Windows (Experimental)
 
-No official Windows binaries exist. Our CI attempts to build ClickHouse using Cygwin's POSIX compatibility layer. This is highly experimental:
+No official Windows binaries exist. Our CI builds ClickHouse using MSYS2 CLANG64 with extensive patches for Windows compatibility. This is highly experimental.
 
-- Cygwin provides Clang 20+ (meets ClickHouse's Clang 19+ requirement)
-- Build may fail due to Linux-specific code (epoll, io_uring, etc.)
+**Build implementation:**
+- GitHub Actions workflow calls `builds/clickhouse/build-windows.sh`
+- The script applies 11+ patches for Windows compatibility
+- Creates POSIX stub headers for missing system headers
+- Disables Linux-specific features (epoll, io_uring, jemalloc, etc.)
+
+**Key patches (see build-windows.sh for details):**
+- `cmake/arch.cmake` - AMD64 uppercase detection
+- `cmake/target.cmake` - Windows OS support
+- `cmake/git.cmake` - Skip slow git status
+- OpenSSL - Disable ASM, remove POSIX-only sources
+- boost-cmake - Windows PE assembly files
+- libarchive - Windows crypto headers
+- LLVM - NO_ERROR macro conflict resolution
+- Fake POSIX headers (endian.h, sys/mman.h, grp.h, pwd.h, etc.)
+
+**Limitations:**
+- Build may fail due to untested code paths
 - Build time may exceed GitHub Actions limits (~6 hours)
-- Resulting binary requires Cygwin DLLs at runtime
+- Some features are disabled (see CMake configuration in script)
 
 If the Windows build consistently fails, we may mark `win32-x64: false` and recommend WSL instead.
 
