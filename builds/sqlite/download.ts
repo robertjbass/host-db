@@ -9,7 +9,7 @@
  * Options:
  *   --version VERSION    SQLite version (default: 3.51.2)
  *   --platform PLATFORM  Target platform (default: current platform)
- *   --output DIR         Output directory (default: ./dist)
+ *   --output DIR         Output directory (default: ./downloads)
  *   --all-platforms      Download for all platforms
  *   --help               Show help
  *
@@ -333,7 +333,7 @@ function parseArgs(): {
   const args = process.argv.slice(2)
   let version = '3.51.2'
   let platforms: Platform[] = []
-  let outputDir = './dist'
+  let outputDir = './downloads'
   let allPlatforms = false
 
   for (let i = 0; i < args.length; i++) {
@@ -384,7 +384,7 @@ Usage: ./builds/sqlite/download.ts [options]
 Options:
   --version VERSION    SQLite version (default: 3.51.2)
   --platform PLATFORM  Target platform (default: current)
-  --output DIR         Output directory (default: ./dist)
+  --output DIR         Output directory (default: ./downloads)
   --all-platforms      Download for all platforms
   --help               Show this help
 

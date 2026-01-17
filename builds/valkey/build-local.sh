@@ -8,7 +8,7 @@
 # Options:
 #   --version VERSION    Valkey version to build (default: 9.0.1)
 #   --platform PLATFORM  Target platform: linux-x64, linux-arm64 (default: linux-x64)
-#   --output DIR         Output directory (default: ./dist)
+#   --output DIR         Output directory (default: ./downloads)
 #   --no-cache           Build without Docker cache
 #   --cleanup            Remove extracted directory after creating tarball
 #   --no-cleanup         Keep extracted directory (default in non-interactive/CI)
@@ -30,7 +30,7 @@ set -euo pipefail
 # Default values
 VERSION="9.0.1"
 PLATFORM="linux-x64"
-OUTPUT_DIR="./dist"
+OUTPUT_DIR="./downloads"
 DOCKER_ARGS=()   # Optional docker build arguments
 CLEANUP_MODE=""  # "", "yes", or "no"
 
@@ -60,7 +60,7 @@ Usage:
 Options:
   --version VERSION    Valkey version to build (default: 9.0.1)
   --platform PLATFORM  Target platform: linux-x64, linux-arm64 (default: linux-x64)
-  --output DIR         Output directory (default: ./dist)
+  --output DIR         Output directory (default: ./downloads)
   --no-cache           Build without Docker cache
   --cleanup            Remove extracted directory after creating tarball
   --no-cleanup         Keep extracted directory (default in non-interactive/CI)

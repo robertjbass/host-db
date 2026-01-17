@@ -4,7 +4,7 @@
 # Usage:
 #   docker buildx build --platform linux/amd64 \
 #     --build-arg VERSION=8.4.3 \
-#     --output type=local,dest=./dist \
+#     --output type=local,dest=./downloads \
 #     -f builds/mysql/Dockerfile .
 
 ARG VERSION=8.4.3

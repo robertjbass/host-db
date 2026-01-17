@@ -1,0 +1,305 @@
+#!/usr/bin/env tsx
+/**
+ * Repair incomplete checksums.txt files on GitHub releases
+ *
+ * Scans all releases and fixes any that have binaries without checksums.
+ *
+ * Usage:
+ *   pnpm tsx scripts/repair-checksums.ts [--dry-run]
+ *   pnpm tsx scripts/repair-checksums.ts --release valkey-9.0.1
+ */
+
+import { createHash } from 'node:crypto'
+import { execSync } from 'node:child_process'
+import { writeFileSync, unlinkSync } from 'node:fs'
+
+type Platform =
+  | 'linux-x64'
+  | 'linux-arm64'
+  | 'darwin-x64'
+  | 'darwin-arm64'
+  | 'win32-x64'
+
+const PLATFORMS: Platform[] = [
+  'linux-x64',
+  'linux-arm64',
+  'darwin-x64',
+  'darwin-arm64',
+  'win32-x64',
+]
+
+type GitHubAsset = {
+  name: string
+  browser_download_url: string
+  size: number
+}
+
+type GitHubRelease = {
+  tag_name: string
+  published_at: string
+  assets: GitHubAsset[]
+}
+
+const REPO = 'robertjbass/hostdb'
+
+function parseArgs(): { dryRun: boolean; releaseTag: string | null } {
+  const args = process.argv.slice(2)
+  let dryRun = false
+  let releaseTag: string | null = null
+
+  for (let i = 0; i < args.length; i++) {
+    switch (args[i]) {
+      case '--dry-run':
+        dryRun = true
+        break
+      case '--release':
+        releaseTag = args[++i]
+        break
+      case '--help':
+      case '-h':
+        console.log(`
+Usage: pnpm tsx scripts/repair-checksums.ts [options]
+
+Options:
+  --dry-run           Show what would be fixed without making changes
+  --release <tag>     Only check/fix a specific release (e.g., valkey-9.0.1)
+  --help              Show this help
+`)
+        process.exit(0)
+    }
+  }
+
+  return { dryRun, releaseTag }
+}
+
+// Extract platform from asset filename
+function extractPlatform(filename: string): Platform | null {
+  for (const platform of PLATFORMS) {
+    if (filename.includes(platform)) {
+      return platform
+    }
+  }
+  return null
+}
+
+// Fetch checksums.txt content from a release
+async function fetchChecksums(tag: string): Promise<Map<string, string>> {
+  const url = `https://github.com/${REPO}/releases/download/${tag}/checksums.txt`
+  const response = await fetch(url)
+
+  const checksums = new Map<string, string>()
+
+  if (!response.ok) {
+    return checksums
+  }
+
+  const content = await response.text()
+
+  for (const line of content.split('\n')) {
+    // Format: "hash  filename" or "hash *filename" (binary mode)
+    const match = line.match(/^([a-f0-9]{64})\s+\*?(.+)$/)
+    if (match) {
+      checksums.set(match[2], match[1])
+    }
+  }
+
+  return checksums
+}
+
+// Compute SHA256 of a remote file by streaming
+async function computeRemoteSha256(url: string): Promise<string> {
+  console.log(`    Downloading and computing SHA256...`)
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${url}: ${response.status}`)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new Error(`No response body for ${url}`)
+  }
+
+  const hash = createHash('sha256')
+  let bytesRead = 0
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    hash.update(value)
+    bytesRead += value.length
+  }
+
+  console.log(`    Downloaded ${(bytesRead / 1024 / 1024).toFixed(1)} MB`)
+  return hash.digest('hex')
+}
+
+// Fetch all releases from GitHub API
+async function fetchAllReleases(): Promise<GitHubRelease[]> {
+  const releases: GitHubRelease[] = []
+  let page = 1
+  const perPage = 100
+
+  while (true) {
+    const url = `https://api.github.com/repos/${REPO}/releases?per_page=${perPage}&page=${page}`
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'hostdb-checksum-repair',
+        ...(process.env.GITHUB_TOKEN
+          ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+          : {}),
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch releases: ${response.status}`)
+    }
+
+    const releaseList = (await response.json()) as GitHubRelease[]
+
+    if (releaseList.length === 0) break
+
+    releases.push(...releaseList)
+
+    if (releaseList.length < perPage) break
+    page++
+  }
+
+  return releases
+}
+
+// Upload new checksums.txt to a release using gh CLI
+function uploadChecksums(tag: string, checksums: Map<string, string>): void {
+  // Build checksums.txt content
+  const lines: string[] = []
+  const sortedKeys = [...checksums.keys()].sort()
+  for (const filename of sortedKeys) {
+    lines.push(`${checksums.get(filename)}  ${filename}`)
+  }
+  const content = lines.join('\n') + '\n'
+
+  // Write to temp file named checksums.txt
+  const tmpDir = `/tmp/hostdb-checksums-${Date.now()}`
+  const tmpFile = `${tmpDir}/checksums.txt`
+  execSync(`mkdir -p ${tmpDir}`)
+  writeFileSync(tmpFile, content)
+
+  // Delete existing checksums.txt if present
+  try {
+    execSync(`gh release delete-asset ${tag} checksums.txt --repo ${REPO} --yes`, {
+      stdio: 'pipe',
+    })
+    console.log(`    Deleted old checksums.txt`)
+  } catch {
+    // Asset might not exist
+  }
+
+  // Also delete any incorrectly named checksum files from previous runs
+  try {
+    execSync(`gh release delete-asset ${tag} checksums-${tag}.txt --repo ${REPO} --yes`, {
+      stdio: 'pipe',
+    })
+    console.log(`    Deleted incorrectly named checksums-${tag}.txt`)
+  } catch {
+    // Asset might not exist
+  }
+
+  // Upload new checksums.txt (file must be named checksums.txt for gh to use that name)
+  execSync(`gh release upload ${tag} ${tmpFile} --repo ${REPO}`, {
+    stdio: 'inherit',
+  })
+
+  // Cleanup
+  unlinkSync(tmpFile)
+  execSync(`rmdir ${tmpDir}`)
+}
+
+async function main() {
+  const { dryRun, releaseTag } = parseArgs()
+
+  if (dryRun) {
+    console.log('Running in dry-run mode (no changes will be made)\n')
+  }
+
+  console.log(`Fetching releases from ${REPO}...`)
+  let releases = await fetchAllReleases()
+  console.log(`Found ${releases.length} releases\n`)
+
+  // Filter to specific release if requested
+  if (releaseTag) {
+    releases = releases.filter((r) => r.tag_name === releaseTag)
+    if (releases.length === 0) {
+      console.error(`Release '${releaseTag}' not found`)
+      process.exit(1)
+    }
+  }
+
+  let fixedCount = 0
+
+  for (const release of releases) {
+    const tag = release.tag_name
+
+    // Get binary assets (exclude checksums.txt)
+    const binaryAssets = release.assets.filter(
+      (a) => a.name !== 'checksums.txt' && extractPlatform(a.name) !== null
+    )
+
+    if (binaryAssets.length === 0) {
+      continue // No platform binaries in this release
+    }
+
+    // Fetch existing checksums
+    const existingChecksums = await fetchChecksums(tag)
+
+    // Find missing checksums
+    const missingAssets = binaryAssets.filter((a) => !existingChecksums.has(a.name))
+
+    if (missingAssets.length === 0) {
+      continue // All checksums present
+    }
+
+    console.log(`\n${tag}: missing ${missingAssets.length} checksum(s)`)
+    for (const asset of missingAssets) {
+      console.log(`  - ${asset.name}`)
+    }
+
+    if (dryRun) {
+      continue
+    }
+
+    // Compute missing checksums
+    const updatedChecksums = new Map(existingChecksums)
+
+    for (const asset of missingAssets) {
+      console.log(`  Computing checksum for ${asset.name}...`)
+      try {
+        const sha256 = await computeRemoteSha256(asset.browser_download_url)
+        updatedChecksums.set(asset.name, sha256)
+        console.log(`    ${sha256}`)
+      } catch (error) {
+        console.error(`    Error: ${error instanceof Error ? error.message : error}`)
+      }
+    }
+
+    // Upload updated checksums.txt
+    console.log(`  Uploading updated checksums.txt...`)
+    uploadChecksums(tag, updatedChecksums)
+    console.log(`  Done!`)
+    fixedCount++
+  }
+
+  console.log('')
+  if (dryRun) {
+    console.log(`Dry run complete. Run without --dry-run to fix.`)
+  } else if (fixedCount > 0) {
+    console.log(`Fixed ${fixedCount} release(s)`)
+  } else {
+    console.log('All releases have complete checksums')
+  }
+}
+
+main().catch((err) => {
+  console.error('Error:', err.message)
+  process.exit(1)
+})

@@ -9,7 +9,7 @@
  * Options:
  *   --version VERSION    MySQL version (default: 8.4.3)
  *   --platform PLATFORM  Target platform (default: current platform)
- *   --output DIR         Output directory (default: ./dist)
+ *   --output DIR         Output directory (default: ./downloads)
  *   --all-platforms      Download for all platforms
  *   --help               Show help
  */
@@ -310,7 +310,7 @@ function parseArgs(): {
   const args = process.argv.slice(2)
   let version = '8.4.3'
   let platforms: Platform[] = []
-  let outputDir = './dist'
+  let outputDir = './downloads'
   let allPlatforms = false
 
   for (let i = 0; i < args.length; i++) {
@@ -361,7 +361,7 @@ Usage: ./builds/mysql/download.ts [options]
 Options:
   --version VERSION    MySQL version (default: 8.4.3)
   --platform PLATFORM  Target platform (default: current)
-  --output DIR         Output directory (default: ./dist)
+  --output DIR         Output directory (default: ./downloads)
   --all-platforms      Download for all platforms
   --help               Show this help
 

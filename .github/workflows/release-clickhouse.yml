@@ -21,7 +21,6 @@ on:
           - 'linux-arm64'
           - 'darwin-x64'
           - 'darwin-arm64'
-          - 'win32-x64'
 
 # Prevent concurrent runs that could conflict when updating releases.json
 concurrency:
@@ -95,25 +94,21 @@ jobs:
         run: |
           PLATFORMS="${{ github.event.inputs.platforms }}"
 
-          # Download platforms (Linux + macOS - have official binaries)
+          # ClickHouse only supports Linux and macOS (no Windows binaries)
+          # All platforms are downloads from official releases
           DOWNLOAD_PLATFORMS='["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64"]'
 
-          # Build platforms (Windows - requires source build)
-          BUILD_PLATFORMS='["win32-x64"]'
-
           if [ "$PLATFORMS" = "all" ]; then
-            # All platforms
+            # All platforms (no Windows for ClickHouse)
             DOWNLOAD_MATRIX='[
               {"platform": "linux-x64", "runner": "ubuntu-latest"},
               {"platform": "linux-arm64", "runner": "ubuntu-latest"},
               {"platform": "darwin-x64", "runner": "macos-15-intel"},
               {"platform": "darwin-arm64", "runner": "macos-14"}
             ]'
-            BUILD_MATRIX='[
-              {"platform": "win32-x64", "runner": "windows-latest"}
-            ]'
+            BUILD_MATRIX='[]'
             HAS_DOWNLOADS="true"
-            HAS_BUILDS="true"
+            HAS_BUILDS="false"
           elif echo "$DOWNLOAD_PLATFORMS" | jq -e "index(\"$PLATFORMS\")" > /dev/null; then
             # Single download platform
             case "$PLATFORMS" in
@@ -130,12 +125,6 @@ jobs:
             BUILD_MATRIX='[]'
             HAS_DOWNLOADS="true"
             HAS_BUILDS="false"
-          elif echo "$BUILD_PLATFORMS" | jq -e "index(\"$PLATFORMS\")" > /dev/null; then
-            # Single build platform
-            DOWNLOAD_MATRIX='[]'
-            BUILD_MATRIX="[{\"platform\": \"$PLATFORMS\", \"runner\": \"windows-latest\"}]"
-            HAS_DOWNLOADS="false"
-            HAS_BUILDS="true"
           else
             echo "::error::Unknown platform: $PLATFORMS"
             exit 1
@@ -329,8 +318,8 @@ jobs:
 
   # Collect all artifacts and create release
   release:
-    needs: [build-download, build-source]
-    if: always() && (needs.build-download.result == 'success' || needs.build-download.result == 'skipped') && (needs.build-source.result == 'success' || needs.build-source.result == 'skipped' || needs.build-source.result == 'failure')
+    needs: [build-download]
+    if: needs.build-download.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -402,9 +391,8 @@ jobs:
             | `linux-arm64` | Official binary (GitHub releases) |
             | `darwin-x64` | Official binary (GitHub releases) |
             | `darwin-arm64` | Official binary (GitHub releases) |
-            | `win32-x64` | **EXPERIMENTAL** Source build (Cygwin) |
 
-            **Note:** Windows builds are experimental. ClickHouse does not officially support Windows. For production Windows use, consider WSL.
+            **Note:** ClickHouse does not officially support Windows. For Windows use, consider WSL.
 
             ### Usage
             ```bash

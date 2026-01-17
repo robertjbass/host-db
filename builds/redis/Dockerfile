@@ -4,7 +4,7 @@
 # Usage:
 #   docker buildx build --platform linux/amd64 \
 #     --build-arg VERSION=8.4.0 \
-#     --output type=local,dest=./dist \
+#     --output type=local,dest=./downloads \
 #     -f builds/redis/Dockerfile .
 #
 # Build time: ~5-15 minutes depending on platform and resources

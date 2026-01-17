@@ -91,7 +91,7 @@ if ! command -v docker &>/dev/null; then
 fi
 
 # Create output directory
-OUTPUT_DIR="$SCRIPT_DIR/../../dist"
+OUTPUT_DIR="$SCRIPT_DIR/../../downloads"
 mkdir -p "$OUTPUT_DIR"
 
 # Build Docker image
@@ -106,7 +106,7 @@ docker build \
 echo "Extracting artifact..."
 docker run --rm \
     --platform "$DOCKER_PLATFORM" \
-    -v "$OUTPUT_DIR:/dist" \
+    -v "$OUTPUT_DIR:/downloads" \
     "sqlite-builder:$VERSION-$PLATFORM"
 
 echo ""

@@ -53,6 +53,7 @@ type ReleasesManifest = {
 }
 
 type GitHubAsset = {
+  id: number
   name: string
   browser_download_url: string
   size: number
@@ -160,23 +161,74 @@ function sortReleasesManifest(releases: ReleasesManifest): ReleasesManifest {
   }
 }
 
-// Fetch checksums.txt from a release
+// Fetch checksums.txt from a release using GitHub API (avoids CDN caching issues)
 async function fetchChecksums(
   repo: string,
   tag: string,
 ): Promise<Record<string, string>> {
-  const url = `https://github.com/${repo}/releases/download/${tag}/checksums.txt`
-  const response = await fetch(url)
+  // First try to get the asset URL from the API
+  const apiUrl = `https://api.github.com/repos/${repo}/releases/tags/${tag}`
+  const apiResponse = await fetch(apiUrl, {
+    headers: {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'hostdb-release-reconciler',
+      ...(process.env.GITHUB_TOKEN
+        ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+        : {}),
+    },
+  })
 
-  if (!response.ok) {
+  if (!apiResponse.ok) {
     return {}
   }
 
-  const content = await response.text()
+  const release = (await apiResponse.json()) as GitHubRelease
+  const checksumAsset = release.assets.find((a) => a.name === 'checksums.txt')
+
+  if (!checksumAsset) {
+    return {}
+  }
+
+  // Fetch the actual checksums.txt content using the asset's API URL
+  const assetResponse = await fetch(checksumAsset.browser_download_url, {
+    headers: {
+      'User-Agent': 'hostdb-release-reconciler',
+    },
+    redirect: 'follow',
+  })
+
+  if (!assetResponse.ok) {
+    // Fallback: try GitHub API asset download
+    const assetApiUrl = `https://api.github.com/repos/${repo}/releases/assets/${checksumAsset.id}`
+    const assetApiResponse = await fetch(assetApiUrl, {
+      headers: {
+        Accept: 'application/octet-stream',
+        'User-Agent': 'hostdb-release-reconciler',
+        ...(process.env.GITHUB_TOKEN
+          ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+          : {}),
+      },
+      redirect: 'follow',
+    })
+
+    if (!assetApiResponse.ok) {
+      return {}
+    }
+
+    const content = await assetApiResponse.text()
+    return parseChecksums(content)
+  }
+
+  const content = await assetResponse.text()
+  return parseChecksums(content)
+}
+
+function parseChecksums(content: string): Record<string, string> {
   const checksums: Record<string, string> = {}
 
   for (const line of content.split('\n')) {
-    const match = line.match(/^([a-f0-9]{64})\s+(.+)$/)
+    // Format: "hash  filename" or "hash *filename" (binary mode)
+    const match = line.match(/^([a-f0-9]{64})\s+\*?(.+)$/)
     if (match) {
       checksums[match[2]] = match[1]
     }
@@ -281,22 +333,48 @@ async function main() {
   // Track additions (releases on GitHub but not in releases.json)
   const additions: Array<{ database: string; version: string; tag: string }> = []
 
-  for (const [tag, _release] of githubReleases) {
-    if (existingTags.has(tag)) {
-      continue
-    }
+  // Track updates (releases that exist but are missing platforms)
+  const updates: Array<{ database: string; version: string; tag: string; missingPlatforms: Platform[] }> = []
 
+  for (const [tag, ghRelease] of githubReleases) {
     const parsed = parseReleaseTag(tag)
     if (!parsed) {
       console.warn(`  Warning: Could not parse tag format: ${tag}`)
       continue
     }
 
-    additions.push({
-      database: parsed.database,
-      version: parsed.version,
-      tag,
-    })
+    if (!existingTags.has(tag)) {
+      additions.push({
+        database: parsed.database,
+        version: parsed.version,
+        tag,
+      })
+      continue
+    }
+
+    // Check if existing release is missing platforms
+    const existingRelease = releases.databases[parsed.database]?.[parsed.version]
+    if (!existingRelease) continue
+
+    const existingPlatforms = new Set(Object.keys(existingRelease.platforms))
+    const missingPlatforms: Platform[] = []
+
+    for (const asset of ghRelease.assets) {
+      if (asset.name === 'checksums.txt') continue
+      const platform = extractPlatform(asset.name)
+      if (platform && !existingPlatforms.has(platform)) {
+        missingPlatforms.push(platform)
+      }
+    }
+
+    if (missingPlatforms.length > 0) {
+      updates.push({
+        database: parsed.database,
+        version: parsed.version,
+        tag,
+        missingPlatforms,
+      })
+    }
   }
 
   // Report findings
@@ -315,6 +393,14 @@ async function main() {
     console.log(`\nFound ${additions.length} missing releases to add:\n`)
     for (const { database, version, tag } of additions) {
       console.log(`  + ${database}/${version} (${tag})`)
+    }
+  }
+
+  if (updates.length > 0) {
+    hasChanges = true
+    console.log(`\nFound ${updates.length} releases with missing platforms to update:\n`)
+    for (const { database, version, tag, missingPlatforms } of updates) {
+      console.log(`  ~ ${database}/${version} (${tag}) - missing: ${missingPlatforms.join(', ')}`)
     }
   }
 
@@ -409,6 +495,49 @@ async function main() {
     console.log(`  Added ${platformCount} platforms: ${Object.keys(versionRelease.platforms).join(', ')}`)
   }
 
+  // Update existing releases with missing platforms
+  for (const { database, version, tag, missingPlatforms } of updates) {
+    const githubRelease = githubReleases.get(tag)
+    if (!githubRelease) continue
+
+    console.log(`\nUpdating ${tag}...`)
+
+    // Fetch checksums for this release
+    const checksums = await fetchChecksums(releases.repository, tag)
+    if (Object.keys(checksums).length === 0) {
+      console.warn(`  Warning: No checksums.txt found for ${tag}, skipping`)
+      continue
+    }
+
+    const existingRelease = releases.databases[database][version]
+    let addedCount = 0
+
+    // Add missing platforms
+    for (const asset of githubRelease.assets) {
+      if (asset.name === 'checksums.txt') continue
+
+      const platform = extractPlatform(asset.name)
+      if (!platform || !missingPlatforms.includes(platform)) {
+        continue
+      }
+
+      const sha256 = checksums[asset.name]
+      if (!sha256) {
+        console.warn(`  Warning: No checksum found for ${asset.name}`)
+        continue
+      }
+
+      existingRelease.platforms[platform] = {
+        url: asset.browser_download_url,
+        sha256,
+        size: asset.size,
+      }
+      addedCount++
+    }
+
+    console.log(`  Added ${addedCount} missing platforms: ${missingPlatforms.join(', ')}`)
+  }
+
   releases.lastUpdated = new Date().toISOString()
 
   // Sort for deterministic output and write
@@ -421,6 +550,9 @@ async function main() {
   }
   if (additions.length > 0) {
     console.log(`  Added ${additions.length} missing releases`)
+  }
+  if (updates.length > 0) {
+    console.log(`  Updated ${updates.length} releases with missing platforms`)
   }
 }
 

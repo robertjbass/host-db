@@ -11,7 +11,7 @@
  * Options:
  *   --version VERSION    Valkey version (default: 9.0.1)
  *   --platform PLATFORM  Target platform (default: current platform)
- *   --output DIR         Output directory (default: ./dist)
+ *   --output DIR         Output directory (default: ./downloads)
  *   --all-platforms      Build for all platforms (skips build-required unless --build-fallback)
  *   --build-fallback     Build from source for platforms without binaries (linux only)
  *   --help               Show help
@@ -194,7 +194,7 @@ function parseArgs(): {
   const args = process.argv.slice(2)
   let version = '9.0.1'
   let platforms: Platform[] = []
-  let outputDir = './dist'
+  let outputDir = './downloads'
   let allPlatforms = false
   let buildFallback = false
 
@@ -249,7 +249,7 @@ Usage: ./builds/valkey/download.ts [options]
 Options:
   --version VERSION    Valkey version (default: 9.0.1)
   --platform PLATFORM  Target platform (default: current)
-  --output DIR         Output directory (default: ./dist)
+  --output DIR         Output directory (default: ./downloads)
   --all-platforms      Build for all platforms (skips build-required unless --build-fallback)
   --build-fallback     Build from source for platforms without binaries (linux only)
   --help               Show this help

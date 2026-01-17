@@ -4,6 +4,7 @@
 builds/
 scripts/
 dist/
+downloads/
 
 # Logs and temp files
 *.log

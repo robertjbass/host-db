@@ -29,7 +29,20 @@
       "Bash(gh release download:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(find:*)",
+      "Bash(npm pack:*)",
+      "Bash(pnpm start --help:*)",
+      "Bash(pnpm start list)",
+      "Bash(pnpm start list --json)",
+      "Bash(pnpm start list mysql)",
+      "Bash(pnpm start list m1)",
+      "Bash(pnpm start:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm prep:*)",
+      "Bash(pnpm sync:versions:*)",
+      "Bash(gh release list:*)",
+      "Bash(pnpm reconcile:releases)"
     ]
   }
 }

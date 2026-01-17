@@ -9,9 +9,10 @@ on:
         type: choice
         options:
           - 9.5.0
-          - 8.4.7
+          - 9.1.0
+          - 8.4.3
           - 8.0.40
-        default: 8.4.7
+        default: 9.5.0
       platforms:
         description: 'Platforms'
         required: true

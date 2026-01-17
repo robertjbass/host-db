@@ -18,7 +18,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getEnabledVersions } from './lib/databases.js'
+import { getEnabledVersions } from '../lib/databases.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
