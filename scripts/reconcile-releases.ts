@@ -5,8 +5,9 @@
  * Usage:
  *   pnpm tsx scripts/reconcile-releases.ts [--dry-run]
  *
- * This script fetches all releases from GitHub and removes any entries
- * from releases.json that no longer exist in the repository.
+ * This script fetches all releases from GitHub and:
+ * - Removes entries from releases.json that no longer exist on GitHub
+ * - Adds entries for GitHub releases that are missing from releases.json
  */
 
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -22,6 +23,14 @@ type Platform =
   | 'darwin-x64'
   | 'darwin-arm64'
   | 'win32-x64'
+
+const PLATFORMS: Platform[] = [
+  'linux-x64',
+  'linux-arm64',
+  'darwin-x64',
+  'darwin-arm64',
+  'win32-x64',
+]
 
 type PlatformAsset = {
   url: string
@@ -43,9 +52,16 @@ type ReleasesManifest = {
   databases: Record<string, Record<string, VersionRelease>>
 }
 
+type GitHubAsset = {
+  name: string
+  browser_download_url: string
+  size: number
+}
+
 type GitHubRelease = {
   tag_name: string
   published_at: string
+  assets: GitHubAsset[]
 }
 
 // Parse CLI arguments
@@ -64,19 +80,66 @@ function parseArgs(): { dryRun: boolean } {
 Usage: pnpm tsx scripts/reconcile-releases.ts [options]
 
 Options:
-  --dry-run   Show what would be removed without making changes
+  --dry-run   Show what would be changed without making changes
   --help      Show this help
 `)
         process.exit(0)
+        break
     }
   }
 
   return { dryRun }
 }
 
+// Parse release tag to extract database and version
+// Format: {database}-{version} e.g., "clickhouse-25.12.3.21", "mysql-8.4.3"
+function parseReleaseTag(tag: string): { database: string; version: string } | null {
+  // Find the first hyphen followed by a digit (start of version)
+  const match = tag.match(/^(.+?)-(\d.*)$/)
+  if (!match) {
+    return null
+  }
+  return { database: match[1], version: match[2] }
+}
+
+// Extract platform from asset filename
+function extractPlatform(filename: string): Platform | null {
+  for (const platform of PLATFORMS) {
+    if (filename.includes(platform)) {
+      return platform
+    }
+  }
+  return null
+}
+
+// Fetch checksums.txt from a release
+async function fetchChecksums(
+  repo: string,
+  tag: string,
+): Promise<Record<string, string>> {
+  const url = `https://github.com/${repo}/releases/download/${tag}/checksums.txt`
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    return {}
+  }
+
+  const content = await response.text()
+  const checksums: Record<string, string> = {}
+
+  for (const line of content.split('\n')) {
+    const match = line.match(/^([a-f0-9]{64})\s+(.+)$/)
+    if (match) {
+      checksums[match[2]] = match[1]
+    }
+  }
+
+  return checksums
+}
+
 // Fetch all releases from GitHub API (handles pagination)
-async function fetchAllReleases(repo: string): Promise<Set<string>> {
-  const releaseTags = new Set<string>()
+async function fetchAllReleases(repo: string): Promise<Map<string, GitHubRelease>> {
+  const releases = new Map<string, GitHubRelease>()
   let page = 1
   const perPage = 100
 
@@ -98,27 +161,27 @@ async function fetchAllReleases(repo: string): Promise<Set<string>> {
       throw new Error(`Failed to fetch releases: ${response.status}`)
     }
 
-    const releases = (await response.json()) as GitHubRelease[]
+    const releaseList = (await response.json()) as GitHubRelease[]
 
-    if (releases.length === 0) {
+    if (releaseList.length === 0) {
       break
     }
 
-    for (const release of releases) {
-      releaseTags.add(release.tag_name)
+    for (const release of releaseList) {
+      releases.set(release.tag_name, release)
     }
 
-    console.log(`  Fetched page ${page}: ${releases.length} releases`)
+    console.log(`  Fetched page ${page}: ${releaseList.length} releases`)
 
-    if (releases.length < perPage) {
+    if (releaseList.length < perPage) {
       break
     }
 
     page++
   }
 
-  console.log(`  Total releases found: ${releaseTags.size}`)
-  return releaseTags
+  console.log(`  Total releases found: ${releases.size}`)
+  return releases
 }
 
 async function main() {
@@ -141,15 +204,23 @@ async function main() {
   }
 
   // Fetch all releases from GitHub
-  const githubTags = await fetchAllReleases(releases.repository)
+  const githubReleases = await fetchAllReleases(releases.repository)
 
-  // Track removals
+  // Build set of existing release tags in releases.json
+  const existingTags = new Set<string>()
+  for (const versions of Object.values(releases.databases)) {
+    for (const release of Object.values(versions)) {
+      existingTags.add(release.releaseTag)
+    }
+  }
+
+  // Track removals (entries in releases.json but not on GitHub)
   const removals: Array<{ database: string; version: string; tag: string }> = []
 
   // Check each entry in releases.json
   for (const [database, versions] of Object.entries(releases.databases)) {
     for (const [version, release] of Object.entries(versions)) {
-      if (!githubTags.has(release.releaseTag)) {
+      if (!githubReleases.has(release.releaseTag)) {
         removals.push({
           database,
           version,
@@ -159,17 +230,49 @@ async function main() {
     }
   }
 
-  // Report findings
-  if (removals.length === 0) {
-    console.log(
-      '\n✓ All entries in releases.json have matching GitHub releases',
-    )
-    return
+  // Track additions (releases on GitHub but not in releases.json)
+  const additions: Array<{ database: string; version: string; tag: string }> = []
+
+  for (const [tag, _release] of githubReleases) {
+    if (existingTags.has(tag)) {
+      continue
+    }
+
+    const parsed = parseReleaseTag(tag)
+    if (!parsed) {
+      console.warn(`  Warning: Could not parse tag format: ${tag}`)
+      continue
+    }
+
+    additions.push({
+      database: parsed.database,
+      version: parsed.version,
+      tag,
+    })
   }
 
-  console.log(`\nFound ${removals.length} stale entries:\n`)
-  for (const { database, version, tag } of removals) {
-    console.log(`  - ${database}/${version} (${tag})`)
+  // Report findings
+  let hasChanges = false
+
+  if (removals.length > 0) {
+    hasChanges = true
+    console.log(`\nFound ${removals.length} stale entries to remove:\n`)
+    for (const { database, version, tag } of removals) {
+      console.log(`  - ${database}/${version} (${tag})`)
+    }
+  }
+
+  if (additions.length > 0) {
+    hasChanges = true
+    console.log(`\nFound ${additions.length} missing releases to add:\n`)
+    for (const { database, version, tag } of additions) {
+      console.log(`  + ${database}/${version} (${tag})`)
+    }
+  }
+
+  if (!hasChanges) {
+    console.log('\n✓ releases.json is in sync with GitHub releases')
+    return
   }
 
   if (dryRun) {
@@ -187,12 +290,79 @@ async function main() {
     }
   }
 
+  // Add missing entries
+  for (const { database, version, tag } of additions) {
+    const githubRelease = githubReleases.get(tag)
+    if (!githubRelease) continue
+
+    console.log(`\nProcessing ${tag}...`)
+
+    // Fetch checksums for this release
+    const checksums = await fetchChecksums(releases.repository, tag)
+    if (Object.keys(checksums).length === 0) {
+      console.warn(`  Warning: No checksums.txt found for ${tag}, skipping`)
+      continue
+    }
+
+    // Build version release entry
+    const versionRelease: VersionRelease = {
+      version,
+      releaseTag: tag,
+      releasedAt: githubRelease.published_at,
+      platforms: {},
+    }
+
+    // Process assets
+    let platformCount = 0
+    for (const asset of githubRelease.assets) {
+      // Skip checksums.txt
+      if (asset.name === 'checksums.txt') continue
+
+      const platform = extractPlatform(asset.name)
+      if (!platform) {
+        continue
+      }
+
+      const sha256 = checksums[asset.name]
+      if (!sha256) {
+        console.warn(`  Warning: No checksum found for ${asset.name}`)
+        continue
+      }
+
+      versionRelease.platforms[platform] = {
+        url: asset.browser_download_url,
+        sha256,
+        size: asset.size,
+      }
+      platformCount++
+    }
+
+    if (platformCount === 0) {
+      console.warn(`  Warning: No valid platform assets found for ${tag}, skipping`)
+      continue
+    }
+
+    // Add to releases
+    if (!releases.databases[database]) {
+      releases.databases[database] = {}
+    }
+    releases.databases[database][version] = versionRelease
+
+    console.log(`  Added ${platformCount} platforms: ${Object.keys(versionRelease.platforms).join(', ')}`)
+  }
+
   releases.lastUpdated = new Date().toISOString()
 
   // Write updated releases.json
   writeFileSync(releasesPath, JSON.stringify(releases, null, 2) + '\n')
 
-  console.log(`\n✓ Removed ${removals.length} stale entries from releases.json`)
+  console.log('\n✓ Updated releases.json')
+  if (removals.length > 0) {
+    console.log(`  Removed ${removals.length} stale entries`)
+  }
+  if (additions.length > 0) {
+    console.log(`  Added ${additions.length} missing releases`)
+  }
 }
 
 main().catch((err) => {

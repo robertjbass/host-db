@@ -24,7 +24,12 @@
       "Bash(wmic process where \"name=''git.exe''\" get processid,commandline)",
       "Bash(taskkill:*)",
       "Bash(grep:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh release download:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh api:*)"
     ]
   }
 }

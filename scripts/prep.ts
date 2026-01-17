@@ -146,6 +146,7 @@ ${colors.yellow}Checks:${colors.reset}
   2. Linting (eslint)
   3. Workflow version sync (sync:versions --check)
   4. Missing checksums detection
+  5. Reconcile releases.json with GitHub releases
 `)
     process.exit(0)
   }
@@ -208,6 +209,14 @@ ${colors.yellow}Checks:${colors.reset}
     }
   } else {
     logSuccess('All checksums populated')
+  }
+
+  // 6. Reconcile releases.json with GitHub releases
+  const reconcileCmd = checkOnly
+    ? 'pnpm tsx scripts/reconcile-releases.ts --dry-run'
+    : 'pnpm tsx scripts/reconcile-releases.ts'
+  if (!runCommand(reconcileCmd, 'Reconcile releases.json')) {
+    allPassed = false
   }
 
   // Summary

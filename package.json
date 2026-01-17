@@ -2,7 +2,7 @@
   "name": "hostdb",
   "version": "0.9.3",
   "description": "Pre-built database binaries for multiple platforms, distributed via GitHub Releases",
-  "private": true,
+  "private": false,
   "type": "module",
   "author": "Bob Bass",
   "license": "PolyForm-Noncommercial-1.0.0",
