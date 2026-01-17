@@ -45,7 +45,27 @@ const child = spawn(
   },
 )
 
-child.on('exit', (code) => {
+// Forward termination signals to child process
+const forwardSignal = (signal) => {
+  if (child.pid && !child.killed) {
+    child.kill(signal)
+  }
+}
+
+process.on('SIGINT', () => forwardSignal('SIGINT'))
+process.on('SIGTERM', () => forwardSignal('SIGTERM'))
+process.on('SIGHUP', () => forwardSignal('SIGHUP'))
+
+child.on('exit', (code, signal) => {
+  // Clean up signal handlers
+  process.removeAllListeners('SIGINT')
+  process.removeAllListeners('SIGTERM')
+  process.removeAllListeners('SIGHUP')
+
+  // Exit with same code or signal-based exit code
+  if (signal) {
+    process.exit(128 + (signal === 'SIGINT' ? 2 : signal === 'SIGTERM' ? 15 : 1))
+  }
   process.exit(code ?? 0)
 })
 

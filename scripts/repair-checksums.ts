@@ -10,8 +10,9 @@
  */
 
 import { createHash } from 'node:crypto'
-import { execSync } from 'node:child_process'
-import { writeFileSync, unlinkSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { writeFileSync, unlinkSync, mkdirSync, rmdirSync } from 'node:fs'
+import { fetchChecksums } from '../lib/checksums.js'
 
 type Platform =
   | 'linux-x64'
@@ -42,6 +43,9 @@ type GitHubRelease = {
 
 const REPO = 'robertjbass/hostdb'
 
+// Validate release tag format (alphanumeric, dots, hyphens, underscores only)
+const VALID_TAG_PATTERN = /^[A-Za-z0-9_.-]+$/
+
 function parseArgs(): { dryRun: boolean; releaseTag: string | null } {
   const args = process.argv.slice(2)
   let dryRun = false
@@ -52,9 +56,21 @@ function parseArgs(): { dryRun: boolean; releaseTag: string | null } {
       case '--dry-run':
         dryRun = true
         break
-      case '--release':
-        releaseTag = args[++i]
+      case '--release': {
+        const nextArg = args[i + 1]
+        if (!nextArg || nextArg.startsWith('-')) {
+          console.error('Error: --release requires a tag argument (e.g., --release valkey-9.0.1)')
+          process.exit(1)
+        }
+        if (!VALID_TAG_PATTERN.test(nextArg)) {
+          console.error(`Error: Invalid release tag format: ${nextArg}`)
+          console.error('Tags must contain only alphanumeric characters, dots, hyphens, and underscores')
+          process.exit(1)
+        }
+        releaseTag = nextArg
+        i++
         break
+      }
       case '--help':
       case '-h':
         console.log(`
@@ -80,30 +96,6 @@ function extractPlatform(filename: string): Platform | null {
     }
   }
   return null
-}
-
-// Fetch checksums.txt content from a release
-async function fetchChecksums(tag: string): Promise<Map<string, string>> {
-  const url = `https://github.com/${REPO}/releases/download/${tag}/checksums.txt`
-  const response = await fetch(url)
-
-  const checksums = new Map<string, string>()
-
-  if (!response.ok) {
-    return checksums
-  }
-
-  const content = await response.text()
-
-  for (const line of content.split('\n')) {
-    // Format: "hash  filename" or "hash *filename" (binary mode)
-    const match = line.match(/^([a-f0-9]{64})\s+\*?(.+)$/)
-    if (match) {
-      checksums.set(match[2], match[1])
-    }
-  }
-
-  return checksums
 }
 
 // Compute SHA256 of a remote file by streaming
@@ -182,12 +174,12 @@ function uploadChecksums(tag: string, checksums: Map<string, string>): void {
   // Write to temp file named checksums.txt
   const tmpDir = `/tmp/hostdb-checksums-${Date.now()}`
   const tmpFile = `${tmpDir}/checksums.txt`
-  execSync(`mkdir -p ${tmpDir}`)
+  mkdirSync(tmpDir, { recursive: true })
   writeFileSync(tmpFile, content)
 
   // Delete existing checksums.txt if present
   try {
-    execSync(`gh release delete-asset ${tag} checksums.txt --repo ${REPO} --yes`, {
+    execFileSync('gh', ['release', 'delete-asset', tag, 'checksums.txt', '--repo', REPO, '--yes'], {
       stdio: 'pipe',
     })
     console.log(`    Deleted old checksums.txt`)
@@ -197,7 +189,7 @@ function uploadChecksums(tag: string, checksums: Map<string, string>): void {
 
   // Also delete any incorrectly named checksum files from previous runs
   try {
-    execSync(`gh release delete-asset ${tag} checksums-${tag}.txt --repo ${REPO} --yes`, {
+    execFileSync('gh', ['release', 'delete-asset', tag, `checksums-${tag}.txt`, '--repo', REPO, '--yes'], {
       stdio: 'pipe',
     })
     console.log(`    Deleted incorrectly named checksums-${tag}.txt`)
@@ -206,13 +198,13 @@ function uploadChecksums(tag: string, checksums: Map<string, string>): void {
   }
 
   // Upload new checksums.txt (file must be named checksums.txt for gh to use that name)
-  execSync(`gh release upload ${tag} ${tmpFile} --repo ${REPO}`, {
+  execFileSync('gh', ['release', 'upload', tag, tmpFile, '--repo', REPO], {
     stdio: 'inherit',
   })
 
   // Cleanup
   unlinkSync(tmpFile)
-  execSync(`rmdir ${tmpDir}`)
+  rmdirSync(tmpDir)
 }
 
 async function main() {
@@ -236,6 +228,7 @@ async function main() {
   }
 
   let fixedCount = 0
+  let hasErrors = false
 
   for (const release of releases) {
     const tag = release.tag_name
@@ -249,8 +242,9 @@ async function main() {
       continue // No platform binaries in this release
     }
 
-    // Fetch existing checksums
-    const existingChecksums = await fetchChecksums(tag)
+    // Fetch existing checksums (shared module returns Record, convert to Map)
+    const existingChecksumsRecord = await fetchChecksums(REPO, tag)
+    const existingChecksums = new Map(Object.entries(existingChecksumsRecord))
 
     // Find missing checksums
     const missingAssets = binaryAssets.filter((a) => !existingChecksums.has(a.name))
@@ -268,8 +262,9 @@ async function main() {
       continue
     }
 
-    // Compute missing checksums
+    // Compute missing checksums, tracking any failures
     const updatedChecksums = new Map(existingChecksums)
+    const failedAssets: string[] = []
 
     for (const asset of missingAssets) {
       console.log(`  Computing checksum for ${asset.name}...`)
@@ -278,8 +273,20 @@ async function main() {
         updatedChecksums.set(asset.name, sha256)
         console.log(`    ${sha256}`)
       } catch (error) {
-        console.error(`    Error: ${error instanceof Error ? error.message : error}`)
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(`    Error: ${message}`)
+        failedAssets.push(asset.name)
       }
+    }
+
+    // Abort upload if any checksum computation failed
+    if (failedAssets.length > 0) {
+      console.error(`  Skipping upload due to ${failedAssets.length} failed checksum(s):`)
+      for (const name of failedAssets) {
+        console.error(`    - ${name}`)
+      }
+      hasErrors = true
+      continue
     }
 
     // Upload updated checksums.txt
@@ -296,6 +303,11 @@ async function main() {
     console.log(`Fixed ${fixedCount} release(s)`)
   } else {
     console.log('All releases have complete checksums')
+  }
+
+  if (hasErrors) {
+    console.error('\nSome releases had checksum computation failures and were skipped.')
+    process.exit(1)
   }
 }
 

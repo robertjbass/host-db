@@ -18,7 +18,12 @@ import { execSync, spawnSync } from 'node:child_process'
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getEnabledVersions } from '../lib/databases.js'
+import {
+  getEnabledVersions,
+  type Platform,
+  type DatabasesJson,
+  type ReleasesJson,
+} from '../lib/databases.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -84,30 +89,6 @@ type SourcesJson = {
   versions: Record<string, Record<string, SourceEntry>>
 }
 
-
-type Platform = 'linux-x64' | 'linux-arm64' | 'darwin-x64' | 'darwin-arm64' | 'win32-x64'
-
-type DatabaseEntry = {
-  displayName: string
-  status: string
-  versions: Record<string, boolean>
-  platforms: Record<string, boolean>
-}
-
-type DatabasesJson = {
-  databases: Record<string, DatabaseEntry>
-}
-
-type ReleaseVersion = {
-  releaseTag: string
-  releasedAt: string
-  platforms: Record<string, { url: string; sha256: string; size: number }>
-}
-
-type ReleasesJson = {
-  databases: Record<string, Record<string, ReleaseVersion>>
-}
-
 type Discrepancy = {
   type: 'missing-release' | 'orphaned-release' | 'missing-version' | 'orphaned-version' | 'missing-platform' | 'orphaned-platform'
   database: string
@@ -138,10 +119,10 @@ function findDiscrepancies(): Discrepancy[] {
   for (const dbId of activeDatabases) {
     const dbEntry = databases.databases[dbId]
     const enabledVersions = Object.entries(dbEntry.versions)
-      .filter(([_, enabled]) => enabled)
+      .filter(([_, enabled]) => enabled === true)
       .map(([version]) => version)
-    const enabledPlatforms = Object.entries(dbEntry.platforms)
-      .filter(([_, enabled]) => enabled)
+    const enabledPlatforms = Object.entries(dbEntry.platforms ?? {})
+      .filter(([_, enabled]) => enabled === true)
       .map(([platform]) => platform) as Platform[]
 
     if (!releases.databases[dbId]) {
@@ -209,7 +190,7 @@ function findDiscrepancies(): Discrepancy[] {
 
       // Check for orphaned platforms
       for (const platform of Object.keys(release.platforms)) {
-        if (!dbEntry.platforms[platform]) {
+        if (!dbEntry.platforms?.[platform]) {
           discrepancies.push({
             type: 'orphaned-platform',
             database: dbId,

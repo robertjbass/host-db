@@ -13,6 +13,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { fetchChecksums } from '../lib/checksums.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = resolve(__dirname, '..')
@@ -159,82 +160,6 @@ function sortReleasesManifest(releases: ReleasesManifest): ReleasesManifest {
     ...releases,
     databases: sortedDatabases,
   }
-}
-
-// Fetch checksums.txt from a release using GitHub API (avoids CDN caching issues)
-async function fetchChecksums(
-  repo: string,
-  tag: string,
-): Promise<Record<string, string>> {
-  // First try to get the asset URL from the API
-  const apiUrl = `https://api.github.com/repos/${repo}/releases/tags/${tag}`
-  const apiResponse = await fetch(apiUrl, {
-    headers: {
-      Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'hostdb-release-reconciler',
-      ...(process.env.GITHUB_TOKEN
-        ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
-        : {}),
-    },
-  })
-
-  if (!apiResponse.ok) {
-    return {}
-  }
-
-  const release = (await apiResponse.json()) as GitHubRelease
-  const checksumAsset = release.assets.find((a) => a.name === 'checksums.txt')
-
-  if (!checksumAsset) {
-    return {}
-  }
-
-  // Fetch the actual checksums.txt content using the asset's API URL
-  const assetResponse = await fetch(checksumAsset.browser_download_url, {
-    headers: {
-      'User-Agent': 'hostdb-release-reconciler',
-    },
-    redirect: 'follow',
-  })
-
-  if (!assetResponse.ok) {
-    // Fallback: try GitHub API asset download
-    const assetApiUrl = `https://api.github.com/repos/${repo}/releases/assets/${checksumAsset.id}`
-    const assetApiResponse = await fetch(assetApiUrl, {
-      headers: {
-        Accept: 'application/octet-stream',
-        'User-Agent': 'hostdb-release-reconciler',
-        ...(process.env.GITHUB_TOKEN
-          ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
-          : {}),
-      },
-      redirect: 'follow',
-    })
-
-    if (!assetApiResponse.ok) {
-      return {}
-    }
-
-    const content = await assetApiResponse.text()
-    return parseChecksums(content)
-  }
-
-  const content = await assetResponse.text()
-  return parseChecksums(content)
-}
-
-function parseChecksums(content: string): Record<string, string> {
-  const checksums: Record<string, string> = {}
-
-  for (const line of content.split('\n')) {
-    // Format: "hash  filename" or "hash *filename" (binary mode)
-    const match = line.match(/^([a-f0-9]{64})\s+\*?(.+)$/)
-    if (match) {
-      checksums[match[2]] = match[1]
-    }
-  }
-
-  return checksums
 }
 
 // Fetch all releases from GitHub API (handles pagination)
@@ -406,9 +331,9 @@ async function main() {
 
   // Always sort for deterministic output, even if no additions/removals
   const sortedReleases = sortReleasesManifest(releases)
-  const currentContent = readFileSync(releasesPath, 'utf-8')
+  const originalContent = JSON.stringify(releases, null, 2) + '\n'
   const sortedContent = JSON.stringify(sortedReleases, null, 2) + '\n'
-  const needsReorder = currentContent !== sortedContent
+  const needsReorder = originalContent !== sortedContent
 
   if (!hasChanges && !needsReorder) {
     console.log('\n✓ releases.json is in sync with GitHub releases')

@@ -79,77 +79,58 @@ jobs:
 
           echo "✓ Version $VERSION found in sources.json"
 
-  # Determine which platforms to build based on input
+  # Determine which platforms to download based on input
   prepare:
     needs: validate
     runs-on: ubuntu-latest
     outputs:
-      download-matrix: ${{ steps.set-matrix.outputs.download-matrix }}
-      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
-      has-downloads: ${{ steps.set-matrix.outputs.has-downloads }}
-      has-builds: ${{ steps.set-matrix.outputs.has-builds }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - name: Set build matrix
+      - name: Set download matrix
         id: set-matrix
         run: |
           PLATFORMS="${{ github.event.inputs.platforms }}"
 
           # ClickHouse only supports Linux and macOS (no Windows binaries)
-          # All platforms are downloads from official releases
-          DOWNLOAD_PLATFORMS='["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64"]'
+          SUPPORTED_PLATFORMS='["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64"]'
 
           if [ "$PLATFORMS" = "all" ]; then
-            # All platforms (no Windows for ClickHouse)
-            DOWNLOAD_MATRIX='[
+            MATRIX='[
               {"platform": "linux-x64", "runner": "ubuntu-latest"},
               {"platform": "linux-arm64", "runner": "ubuntu-latest"},
               {"platform": "darwin-x64", "runner": "macos-15-intel"},
               {"platform": "darwin-arm64", "runner": "macos-14"}
             ]'
-            BUILD_MATRIX='[]'
-            HAS_DOWNLOADS="true"
-            HAS_BUILDS="false"
-          elif echo "$DOWNLOAD_PLATFORMS" | jq -e "index(\"$PLATFORMS\")" > /dev/null; then
-            # Single download platform
+          elif echo "$SUPPORTED_PLATFORMS" | jq -e "index(\"$PLATFORMS\")" > /dev/null; then
+            # Single platform
             case "$PLATFORMS" in
               linux-x64|linux-arm64)
-                DOWNLOAD_MATRIX="[{\"platform\": \"$PLATFORMS\", \"runner\": \"ubuntu-latest\"}]"
+                MATRIX="[{\"platform\": \"$PLATFORMS\", \"runner\": \"ubuntu-latest\"}]"
                 ;;
               darwin-x64)
-                DOWNLOAD_MATRIX="[{\"platform\": \"$PLATFORMS\", \"runner\": \"macos-15-intel\"}]"
+                MATRIX="[{\"platform\": \"$PLATFORMS\", \"runner\": \"macos-15-intel\"}]"
                 ;;
               darwin-arm64)
-                DOWNLOAD_MATRIX="[{\"platform\": \"$PLATFORMS\", \"runner\": \"macos-14\"}]"
+                MATRIX="[{\"platform\": \"$PLATFORMS\", \"runner\": \"macos-14\"}]"
                 ;;
             esac
-            BUILD_MATRIX='[]'
-            HAS_DOWNLOADS="true"
-            HAS_BUILDS="false"
           else
             echo "::error::Unknown platform: $PLATFORMS"
             exit 1
           fi
 
           # Compact the JSON for output
-          DOWNLOAD_MATRIX=$(echo "$DOWNLOAD_MATRIX" | jq -c .)
-          BUILD_MATRIX=$(echo "$BUILD_MATRIX" | jq -c .)
-
-          echo "download-matrix=$DOWNLOAD_MATRIX" >> $GITHUB_OUTPUT
-          echo "build-matrix=$BUILD_MATRIX" >> $GITHUB_OUTPUT
-          echo "has-downloads=$HAS_DOWNLOADS" >> $GITHUB_OUTPUT
-          echo "has-builds=$HAS_BUILDS" >> $GITHUB_OUTPUT
-
-          echo "Download platforms: $DOWNLOAD_MATRIX"
-          echo "Build platforms: $BUILD_MATRIX"
+          MATRIX=$(echo "$MATRIX" | jq -c .)
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "Platforms: $MATRIX"
 
   # Download and repackage official binaries (Linux + macOS)
   build-download:
     needs: prepare
-    if: needs.prepare.outputs.has-downloads == 'true'
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.prepare.outputs.download-matrix) }}
+        include: ${{ fromJson(needs.prepare.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -216,107 +197,9 @@ jobs:
             dist/checksums.txt
           retention-days: 1
 
-  # Build from source (Windows - EXPERIMENTAL)
-  build-source:
-    needs: prepare
-    if: needs.prepare.outputs.has-builds == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.prepare.outputs.build-matrix) }}
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Setup MSYS2 with CLANG64 environment for Windows builds
-      # CLANG64 provides native Windows binaries using Clang/LLVM
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: CLANG64
-          update: true
-          install: >-
-            mingw-w64-clang-x86_64-clang
-            mingw-w64-clang-x86_64-lld
-            mingw-w64-clang-x86_64-cmake
-            mingw-w64-clang-x86_64-ninja
-            mingw-w64-clang-x86_64-openssl
-            mingw-w64-clang-x86_64-zlib
-            mingw-w64-clang-x86_64-zstd
-            mingw-w64-clang-x86_64-lz4
-            mingw-w64-clang-x86_64-xz
-            mingw-w64-clang-x86_64-libxml2
-            mingw-w64-clang-x86_64-python
-            mingw-w64-clang-x86_64-nasm
-            git
-            zip
-
-      # EXPERIMENTAL: Build ClickHouse for Windows using MSYS2 CLANG64
-      # This calls the build-windows.sh script which contains all patches and configuration.
-      # See builds/clickhouse/build-windows.sh for the full implementation.
-      - name: Build ClickHouse (MSYS2 CLANG64 - EXPERIMENTAL)
-        id: build-windows
-        timeout-minutes: 360
-        shell: msys2 {0}
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-
-          echo "=========================================="
-          echo "EXPERIMENTAL: Building ClickHouse $VERSION for Windows (MSYS2 CLANG64)"
-          echo "This build is experimental and may fail!"
-          echo "=========================================="
-
-          # The build script handles:
-          # - Cloning ClickHouse source (with caching)
-          # - Applying all Windows compatibility patches
-          # - Creating POSIX compatibility headers
-          # - CMake configuration with all required flags
-          # - Building and packaging
-
-          cd "$GITHUB_WORKSPACE"
-
-          # Make the build script executable and run it
-          chmod +x builds/clickhouse/build-windows.sh
-          ./builds/clickhouse/build-windows.sh \
-            --version "$VERSION" \
-            --build-dir "$GITHUB_WORKSPACE/clickhouse-build" \
-            --output-dir "$GITHUB_WORKSPACE/dist" || {
-              echo "::warning::Build failed. This is expected for experimental Windows builds."
-              echo "::warning::ClickHouse does not officially support Windows."
-              exit 1
-            }
-
-          echo ""
-          echo "Build complete:"
-          ls -la "$GITHUB_WORKSPACE/dist/"
-
-      - name: Generate checksum (Windows)
-        if: steps.build-windows.outcome == 'success'
-        shell: msys2 {0}
-        run: |
-          cd "$GITHUB_WORKSPACE/dist"
-          # Checksums may already exist from build script, regenerate to be safe
-          rm -f checksums.txt
-          for f in *.tar.gz *.zip; do
-            if [ -f "$f" ]; then
-              sha256sum "$f" >> checksums.txt
-            fi
-          done
-          cat checksums.txt
-
-      - name: Upload artifact
-        if: steps.build-windows.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: clickhouse-${{ github.event.inputs.version }}-${{ matrix.platform }}
-          path: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/checksums.txt
-          retention-days: 1
-
   # Collect all artifacts and create release
+  # Note: Windows builds are not supported for ClickHouse. See builds/clickhouse/build-windows.sh
+  # for experimental build script if Windows support is ever attempted.
   release:
     needs: [build-download]
     if: needs.build-download.result == 'success'

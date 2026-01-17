@@ -5,53 +5,12 @@
  * Query and download database binaries from hostdb releases.
  */
 
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const ROOT = join(__dirname, '..')
-
-type Platform =
-  | 'linux-x64'
-  | 'linux-arm64'
-  | 'darwin-x64'
-  | 'darwin-arm64'
-  | 'win32-x64'
-
-type PlatformAsset = {
-  url: string
-  sha256: string
-  size: number
-}
-
-type VersionRelease = {
-  version: string
-  releaseTag: string
-  releasedAt: string
-  platforms: Partial<Record<Platform, PlatformAsset>>
-}
-
-type ReleasesManifest = {
-  $schema: string
-  repository: string
-  lastUpdated: string | null
-  databases: Record<string, Record<string, VersionRelease>>
-}
-
-type DatabaseEntry = {
-  displayName: string
-  description: string
-  type: string
-  status: string
-  latestLts: string
-  versions: Record<string, boolean>
-  platforms: Record<string, boolean>
-}
-
-type DatabasesManifest = {
-  databases: Record<string, DatabaseEntry>
-}
+import {
+  loadDatabasesJson,
+  loadReleasesJson,
+  type Platform,
+  type PlatformAsset,
+} from '../lib/databases.js'
 
 // Aliases for databases
 const DATABASE_ALIASES: Record<string, string> = {
@@ -103,16 +62,6 @@ const PLATFORM_ALIASES: Record<string, Platform[]> = {
   'win32-x64': ['win32-x64'],
 }
 
-function loadReleases(): ReleasesManifest {
-  const content = readFileSync(join(ROOT, 'releases.json'), 'utf-8')
-  return JSON.parse(content) as ReleasesManifest
-}
-
-function loadDatabases(): DatabasesManifest {
-  const content = readFileSync(join(ROOT, 'databases.json'), 'utf-8')
-  return JSON.parse(content) as DatabasesManifest
-}
-
 function resolveDatabase(input: string): string | null {
   const lower = input.toLowerCase()
   if (DATABASE_ALIASES[lower]) {
@@ -135,7 +84,7 @@ function isVersionString(input: string): boolean {
 }
 
 function sortVersionsDesc(versions: string[]): string[] {
-  return versions.sort((a, b) => {
+  return [...versions].sort((a, b) => {
     const partsA = a.split('.').map((p) => parseInt(p, 10) || 0)
     const partsB = b.split('.').map((p) => parseInt(p, 10) || 0)
     for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
@@ -144,6 +93,46 @@ function sortVersionsDesc(versions: string[]): string[] {
     }
     return 0
   })
+}
+
+/**
+ * Resolve a platform alias to a single target platform from available platforms
+ */
+function resolveTargetPlatform(
+  platformInput: string,
+  availablePlatforms: Partial<Record<Platform, PlatformAsset>>,
+): Platform {
+  const platforms = resolvePlatforms(platformInput)
+
+  if (platforms && platforms.length === 1) {
+    const target = platforms[0]
+    if (!availablePlatforms[target]) {
+      console.error(`Error: Platform '${platformInput}' not found`)
+      console.error(`\nAvailable: ${Object.keys(availablePlatforms).join(', ')}`)
+      process.exit(1)
+    }
+    return target
+  }
+
+  if (platforms) {
+    // Multiple platforms from alias - find first available
+    const target = platforms.find((p) => availablePlatforms[p])
+    if (!target) {
+      console.error(`Error: No matching platform for '${platformInput}'`)
+      console.error(`\nAvailable: ${Object.keys(availablePlatforms).join(', ')}`)
+      process.exit(1)
+    }
+    return target
+  }
+
+  // Try as direct platform name
+  const target = platformInput as Platform
+  if (!availablePlatforms[target]) {
+    console.error(`Error: Platform '${platformInput}' not found`)
+    console.error(`\nAvailable: ${Object.keys(availablePlatforms).join(', ')}`)
+    process.exit(1)
+  }
+  return target
 }
 
 function printUsage() {
@@ -191,8 +180,8 @@ Database Aliases:
 }
 
 function cmdList(filters: string[], jsonOutput: boolean): void {
-  const releases = loadReleases()
-  const databases = loadDatabases()
+  const releases = loadReleasesJson()
+  const databases = loadDatabasesJson()
 
   let dbFilter: string | null = null
   let versionFilter: string | null = null
@@ -330,6 +319,7 @@ function cmdList(filters: string[], jsonOutput: boolean): void {
     const dbReleases = releases.databases[dbFilter]
     if (!dbReleases[versionFilter]) {
       console.error(`Error: Version '${versionFilter}' not found for ${dbFilter}`)
+      console.error(`\nAvailable: ${sortVersionsDesc(Object.keys(dbReleases)).join(', ')}`)
       process.exit(1)
     }
 
@@ -414,88 +404,47 @@ function cmdList(filters: string[], jsonOutput: boolean): void {
 }
 
 function cmdUrl(database: string, version: string, platform: string) {
-  const releases = loadReleases()
+  const releases = loadReleasesJson()
 
   const db = resolveDatabase(database)
   if (!db || !releases.databases[db]) {
     console.error(`Error: Database '${database}' not found`)
+    console.error(`\nAvailable: ${Object.keys(releases.databases).sort().join(', ')}`)
     process.exit(1)
   }
 
   if (!releases.databases[db][version]) {
     console.error(`Error: Version '${version}' not found for ${db}`)
+    console.error(`\nAvailable: ${sortVersionsDesc(Object.keys(releases.databases[db])).join(', ')}`)
     process.exit(1)
   }
 
   const release = releases.databases[db][version]
-
-  // Try to resolve platform alias to exact match
-  const platforms = resolvePlatforms(platform)
-  let targetPlatform: Platform | null = null
-
-  if (platforms && platforms.length === 1) {
-    targetPlatform = platforms[0]
-  } else if (platforms) {
-    // Multiple platforms from alias - find first available
-    targetPlatform = platforms.find((p) => release.platforms[p]) || null
-    if (!targetPlatform) {
-      console.error(`Error: No matching platform for '${platform}'`)
-      console.error(`\nAvailable: ${Object.keys(release.platforms).join(', ')}`)
-      process.exit(1)
-    }
-  } else {
-    targetPlatform = platform as Platform
-  }
-
-  const asset = release.platforms[targetPlatform]
-  if (!asset) {
-    console.error(`Error: Platform '${platform}' not found for ${db} ${version}`)
-    console.error(`\nAvailable: ${Object.keys(release.platforms).join(', ')}`)
-    process.exit(1)
-  }
+  const targetPlatform = resolveTargetPlatform(platform, release.platforms)
+  const asset = release.platforms[targetPlatform]!
 
   console.log(asset.url)
 }
 
 function cmdInfo(database: string, version: string, platform: string) {
-  const releases = loadReleases()
+  const releases = loadReleasesJson()
 
   const db = resolveDatabase(database)
   if (!db || !releases.databases[db]) {
     console.error(`Error: Database '${database}' not found`)
+    console.error(`\nAvailable: ${Object.keys(releases.databases).sort().join(', ')}`)
     process.exit(1)
   }
 
   if (!releases.databases[db][version]) {
     console.error(`Error: Version '${version}' not found for ${db}`)
+    console.error(`\nAvailable: ${sortVersionsDesc(Object.keys(releases.databases[db])).join(', ')}`)
     process.exit(1)
   }
 
   const release = releases.databases[db][version]
-
-  // Try to resolve platform alias
-  const platforms = resolvePlatforms(platform)
-  let targetPlatform: Platform | null = null
-
-  if (platforms && platforms.length === 1) {
-    targetPlatform = platforms[0]
-  } else if (platforms) {
-    targetPlatform = platforms.find((p) => release.platforms[p]) || null
-    if (!targetPlatform) {
-      console.error(`Error: No matching platform for '${platform}'`)
-      console.error(`\nAvailable: ${Object.keys(release.platforms).join(', ')}`)
-      process.exit(1)
-    }
-  } else {
-    targetPlatform = platform as Platform
-  }
-
-  const asset = release.platforms[targetPlatform]
-  if (!asset) {
-    console.error(`Error: Platform '${platform}' not found for ${db} ${version}`)
-    console.error(`\nAvailable: ${Object.keys(release.platforms).join(', ')}`)
-    process.exit(1)
-  }
+  const targetPlatform = resolveTargetPlatform(platform, release.platforms)
+  const asset = release.platforms[targetPlatform]!
 
   console.log(JSON.stringify({
     database: db,
