@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.1] - 2026-01-17
+
+### Added
+- **NPM publishing**
+  - Added GH workflows to version checking and publishing
+
+
 ## [0.10.0] - 2026-01-17
 
 ### Added
