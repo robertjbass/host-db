@@ -18,7 +18,12 @@ import { execSync, spawnSync } from 'node:child_process'
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getEnabledVersions } from './lib/databases.js'
+import {
+  getEnabledVersions,
+  type Platform,
+  type DatabasesJson,
+  type ReleasesJson,
+} from '../lib/databases.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -84,6 +89,122 @@ type SourcesJson = {
   versions: Record<string, Record<string, SourceEntry>>
 }
 
+type Discrepancy = {
+  type: 'missing-release' | 'orphaned-release' | 'missing-version' | 'orphaned-version' | 'missing-platform' | 'orphaned-platform'
+  database: string
+  version?: string
+  platform?: string
+  message: string
+}
+
+function findDiscrepancies(): Discrepancy[] {
+  const discrepancies: Discrepancy[] = []
+
+  const databasesPath = join(ROOT, 'databases.json')
+  const releasesPath = join(ROOT, 'releases.json')
+
+  if (!existsSync(databasesPath) || !existsSync(releasesPath)) {
+    return discrepancies
+  }
+
+  const databases: DatabasesJson = JSON.parse(readFileSync(databasesPath, 'utf-8'))
+  const releases: ReleasesJson = JSON.parse(readFileSync(releasesPath, 'utf-8'))
+
+  // Get databases that are in-progress or completed (have enabled versions)
+  const activeDatabases = Object.entries(databases.databases)
+    .filter(([_, entry]) => entry.status === 'in-progress' || entry.status === 'completed')
+    .map(([id]) => id)
+
+  // Check for databases in databases.json but not in releases.json
+  for (const dbId of activeDatabases) {
+    const dbEntry = databases.databases[dbId]
+    const enabledVersions = Object.entries(dbEntry.versions)
+      .filter(([_, enabled]) => enabled === true)
+      .map(([version]) => version)
+    const enabledPlatforms = Object.entries(dbEntry.platforms ?? {})
+      .filter(([_, enabled]) => enabled === true)
+      .map(([platform]) => platform) as Platform[]
+
+    if (!releases.databases[dbId]) {
+      if (enabledVersions.length > 0) {
+        discrepancies.push({
+          type: 'missing-release',
+          database: dbId,
+          message: `Database '${dbId}' has ${enabledVersions.length} enabled version(s) but no releases`,
+        })
+      }
+      continue
+    }
+
+    // Check for versions enabled but not released
+    for (const version of enabledVersions) {
+      if (!releases.databases[dbId][version]) {
+        discrepancies.push({
+          type: 'missing-version',
+          database: dbId,
+          version,
+          message: `Version '${version}' is enabled but not released`,
+        })
+        continue
+      }
+
+      // Check for platforms enabled but not released
+      const releasedPlatforms = Object.keys(releases.databases[dbId][version].platforms)
+      for (const platform of enabledPlatforms) {
+        if (!releasedPlatforms.includes(platform)) {
+          discrepancies.push({
+            type: 'missing-platform',
+            database: dbId,
+            version,
+            platform,
+            message: `Platform '${platform}' is enabled but not released for ${dbId} ${version}`,
+          })
+        }
+      }
+    }
+  }
+
+  // Check for orphaned releases (in releases.json but not enabled in databases.json)
+  for (const [dbId, versions] of Object.entries(releases.databases)) {
+    const dbEntry = databases.databases[dbId]
+
+    if (!dbEntry) {
+      discrepancies.push({
+        type: 'orphaned-release',
+        database: dbId,
+        message: `Database '${dbId}' is in releases.json but not in databases.json`,
+      })
+      continue
+    }
+
+    for (const [version, release] of Object.entries(versions)) {
+      if (!dbEntry.versions[version]) {
+        discrepancies.push({
+          type: 'orphaned-version',
+          database: dbId,
+          version,
+          message: `Version '${version}' is released but not in databases.json`,
+        })
+        continue
+      }
+
+      // Check for orphaned platforms
+      for (const platform of Object.keys(release.platforms)) {
+        if (!dbEntry.platforms?.[platform]) {
+          discrepancies.push({
+            type: 'orphaned-platform',
+            database: dbId,
+            version,
+            platform,
+            message: `Platform '${platform}' is released but not enabled in databases.json`,
+          })
+        }
+      }
+    }
+  }
+
+  return discrepancies
+}
 
 function findMissingChecksums(): Array<{ database: string; version: string; platform: string }> {
   const missing: Array<{ database: string; version: string; platform: string }> = []
@@ -146,6 +267,8 @@ ${colors.yellow}Checks:${colors.reset}
   2. Linting (eslint)
   3. Workflow version sync (sync:versions --check)
   4. Missing checksums detection
+  5. Reconcile releases.json with GitHub releases
+  6. Check for discrepancies between databases.json and releases.json
 `)
     process.exit(0)
   }
@@ -208,6 +331,54 @@ ${colors.yellow}Checks:${colors.reset}
     }
   } else {
     logSuccess('All checksums populated')
+  }
+
+  // 6. Reconcile releases.json with GitHub releases
+  const reconcileCmd = checkOnly
+    ? 'pnpm tsx scripts/reconcile-releases.ts --dry-run'
+    : 'pnpm tsx scripts/reconcile-releases.ts'
+  if (!runCommand(reconcileCmd, 'Reconcile releases.json')) {
+    allPassed = false
+  }
+
+  // 7. Check for discrepancies between databases.json and releases.json
+  logStep('Checking for discrepancies')
+  const discrepancies = findDiscrepancies()
+
+  if (discrepancies.length > 0) {
+    const missing = discrepancies.filter((d) => d.type.startsWith('missing-'))
+    const orphaned = discrepancies.filter((d) => d.type.startsWith('orphaned-'))
+
+    if (missing.length > 0) {
+      logWarning(`Found ${missing.length} missing release(s):`)
+      for (const d of missing) {
+        log(`  ${colors.dim}- ${d.message}${colors.reset}`)
+      }
+    }
+
+    if (orphaned.length > 0) {
+      logWarning(`Found ${orphaned.length} orphaned release(s):`)
+      for (const d of orphaned) {
+        log(`  ${colors.dim}- ${d.message}${colors.reset}`)
+      }
+    }
+
+    log('')
+    log(`${colors.yellow}To resolve:${colors.reset}`)
+    if (missing.length > 0) {
+      log(`  - Run GitHub Actions to create missing releases`)
+      log(`  - Or disable the version/platform in databases.json`)
+    }
+    if (orphaned.length > 0) {
+      log(`  - Add the version to databases.json`)
+      log(`  - Or delete the orphaned GitHub release`)
+    }
+    log('')
+
+    // Discrepancies are warnings, not failures (releases may be in progress)
+    logWarning('Discrepancies found (may be expected if releases are pending)')
+  } else {
+    logSuccess('No discrepancies between databases.json and releases.json')
   }
 
   // Summary

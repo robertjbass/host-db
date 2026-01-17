@@ -3,6 +3,9 @@ node_modules/
 
 # Build outputs
 dist/
+
+# Downloaded database binaries (from download scripts)
+downloads/
 *.tsbuildinfo
 
 # Downloaded binaries (generated at install time)

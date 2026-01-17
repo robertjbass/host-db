@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2026-01-17
+
+### Added
+
+- **Build missing releases workflow** (`.github/workflows/build-missing-releases.yml`)
+  - Scans `databases.json` and `releases.json` to find missing releases
+  - `check-only` mode reports discrepancies without building
+  - `build-missing` mode triggers release workflows, waits for completion, repairs checksums, and updates `releases.json`
+  - Supports filtering to a specific database
+
+- **Shared checksums module** (`lib/checksums.ts`)
+  - Extracted checksum parsing/fetching logic for reuse across scripts
+  - Used by `repair-checksums.ts` and `reconcile-releases.ts`
+
+- **CLI error messages now show available options**
+  - Database not found: shows all available databases
+  - Version not found: shows available versions (sorted descending)
+  - Platform not found: already showed alternatives, now consistent across all commands
+
+### Changed
+
+- **Type consolidation in `lib/databases.ts`**
+  - Added canonical type exports: `Platform`, `DatabaseEntry`, `DatabasesJson`, `PlatformAsset`, `VersionRelease`, `ReleasesJson`
+  - Added `loadReleasesJson()` function
+  - Scripts now import shared types instead of defining local duplicates
+
+- **CLI refactoring** (`cli/bin.ts`)
+  - `sortVersionsDesc()` is now non-mutating (uses `[...versions].sort()`)
+  - Added `resolveTargetPlatform()` helper to deduplicate platform resolution logic
+  - `cmdUrl` and `cmdInfo` simplified from ~40 lines to ~20 lines each
+
+- **ClickHouse workflow simplified** (`release-clickhouse.yml`)
+  - Removed dead `build-source` job (Windows experimental code)
+  - Simplified prepare job outputs
+
+### Fixed
+
+- **Command injection vulnerability in `repair-checksums.ts`**
+  - Now uses `execFileSync` with argument arrays instead of `execSync` with string interpolation
+  - Added validation for `--release` tag argument (alphanumeric, dots, hyphens, underscores only)
+
+- **Checksum repair robustness**
+  - Tracks failed checksum computations and aborts upload if any fail
+  - Prevents partial/corrupt checksums.txt from being uploaded
+
+- **Signal handling in CLI launcher** (`bin/cli.js`)
+  - Forwards SIGINT, SIGTERM, SIGHUP to child process
+  - Properly cleans up signal handlers on exit
+  - Exits with correct signal-based exit codes
+
 ## [0.9.3] - 2026-01-11
 
 ### Fixed

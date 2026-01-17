@@ -4,7 +4,7 @@
 # Usage:
 #   docker buildx build --platform linux/amd64 \
 #     --build-arg VERSION=9.0.1 \
-#     --output type=local,dest=./dist \
+#     --output type=local,dest=./downloads \
 #     -f builds/valkey/Dockerfile .
 #
 # Build time: ~5-15 minutes depending on platform and resources

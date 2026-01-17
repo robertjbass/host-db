@@ -13,7 +13,7 @@
  * Options:
  *   --version VERSION    Redis version (default: 8.4.0)
  *   --platform PLATFORM  Target platform (default: current platform)
- *   --output DIR         Output directory (default: ./dist)
+ *   --output DIR         Output directory (default: ./downloads)
  *   --all-platforms      Download for all platforms (skips build-required unless --build-fallback)
  *   --build-fallback     Build from source for platforms without binaries (linux only)
  *   --help               Show help
@@ -350,7 +350,7 @@ function parseArgs(): {
   const args = process.argv.slice(2)
   let version = '8.4.0'
   let platforms: Platform[] = []
-  let outputDir = './dist'
+  let outputDir = './downloads'
   let allPlatforms = false
   let buildFallback = false
 
@@ -405,7 +405,7 @@ Usage: ./builds/redis/download.ts [options]
 Options:
   --version VERSION    Redis version (default: 8.4.0)
   --platform PLATFORM  Target platform (default: current)
-  --output DIR         Output directory (default: ./dist)
+  --output DIR         Output directory (default: ./downloads)
   --all-platforms      Download for all platforms (skips build-required unless --build-fallback)
   --build-fallback     Build from source for platforms without binaries (linux only)
   --help               Show this help

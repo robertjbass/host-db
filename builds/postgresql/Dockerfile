@@ -5,7 +5,7 @@
 #   docker buildx build --platform linux/amd64 \
 #     --build-arg SOURCE_VERSION=17.7 \
 #     --build-arg FULL_VERSION=17.7.0 \
-#     --output type=local,dest=./dist \
+#     --output type=local,dest=./downloads \
 #     -f builds/postgresql/Dockerfile .
 #
 # Build time: ~15-30 minutes depending on platform and resources

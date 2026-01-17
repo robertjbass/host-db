@@ -4,7 +4,7 @@
 # Usage:
 #   docker buildx build --platform linux/amd64 \
 #     --build-arg VERSION=11.4.5 \
-#     --output type=local,dest=./dist \
+#     --output type=local,dest=./downloads \
 #     -f builds/mariadb/Dockerfile .
 #
 # Build time: ~45-90 minutes depending on platform and resources

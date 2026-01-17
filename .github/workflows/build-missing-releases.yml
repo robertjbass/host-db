@@ -1,0 +1,436 @@
+name: Build Missing Releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to take'
+        required: true
+        type: choice
+        options:
+          - 'check-only'
+          - 'build-missing'
+        default: 'check-only'
+      database:
+        description: 'Database to check (leave empty for all)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  find-missing:
+    runs-on: ubuntu-latest
+    outputs:
+      missing: ${{ steps.check.outputs.missing }}
+      has-missing: ${{ steps.check.outputs.has-missing }}
+      missing-count: ${{ steps.check.outputs.missing-count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find missing releases
+        id: check
+        run: |
+          DATABASE_FILTER="${{ github.event.inputs.database }}"
+
+          echo "## Finding Missing Releases" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Get all databases from databases.json
+          DATABASES=$(jq -r '.databases | keys[]' databases.json)
+
+          # Filter to specific database if requested
+          if [ -n "$DATABASE_FILTER" ]; then
+            if ! echo "$DATABASES" | grep -q "^${DATABASE_FILTER}$"; then
+              echo "::error::Database '$DATABASE_FILTER' not found in databases.json"
+              echo "❌ **Error:** Database \`$DATABASE_FILTER\` not found in databases.json" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+            DATABASES="$DATABASE_FILTER"
+            echo "Filtering to database: \`$DATABASE_FILTER\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          MISSING_RELEASES='[]'
+
+          for DB in $DATABASES; do
+            # Skip databases that aren't in-progress or completed
+            STATUS=$(jq -r ".databases.$DB.status // \"pending\"" databases.json)
+            if [ "$STATUS" != "in-progress" ] && [ "$STATUS" != "completed" ]; then
+              continue
+            fi
+
+            echo "Checking $DB..."
+
+            # Get enabled versions
+            VERSIONS=$(jq -r ".databases.$DB.versions | to_entries | map(select(.value == true)) | .[].key" databases.json)
+
+            # Get enabled platforms
+            PLATFORMS=$(jq -r ".databases.$DB.platforms | to_entries | map(select(.value == true)) | .[].key" databases.json)
+
+            for VERSION in $VERSIONS; do
+              # Check if this version exists in releases.json
+              RELEASE_EXISTS=$(jq -r ".databases.$DB[\"$VERSION\"] // empty" releases.json)
+
+              if [ -z "$RELEASE_EXISTS" ]; then
+                # Entire version is missing - need to build all platforms
+                echo "  $VERSION: NOT RELEASED (all platforms missing)"
+                MISSING_RELEASES=$(echo "$MISSING_RELEASES" | jq -c ". + [{\"database\": \"$DB\", \"version\": \"$VERSION\", \"platforms\": \"all\", \"missing_platforms\": \"all\"}]")
+              else
+                # Version exists, check individual platforms
+                MISSING_PLATFORMS=""
+                for PLATFORM in $PLATFORMS; do
+                  PLATFORM_EXISTS=$(jq -r ".databases.$DB[\"$VERSION\"].platforms[\"$PLATFORM\"] // empty" releases.json)
+                  if [ -z "$PLATFORM_EXISTS" ]; then
+                    if [ -z "$MISSING_PLATFORMS" ]; then
+                      MISSING_PLATFORMS="$PLATFORM"
+                    else
+                      MISSING_PLATFORMS="$MISSING_PLATFORMS,$PLATFORM"
+                    fi
+                  fi
+                done
+
+                if [ -n "$MISSING_PLATFORMS" ]; then
+                  echo "  $VERSION: missing platforms: $MISSING_PLATFORMS"
+                  MISSING_RELEASES=$(echo "$MISSING_RELEASES" | jq -c ". + [{\"database\": \"$DB\", \"version\": \"$VERSION\", \"platforms\": \"all\", \"missing_platforms\": \"$MISSING_PLATFORMS\"}]")
+                fi
+              fi
+            done
+          done
+
+          MISSING_COUNT=$(echo "$MISSING_RELEASES" | jq 'length')
+
+          if [ "$MISSING_COUNT" -eq 0 ]; then
+            echo ""
+            echo "✓ No missing releases found"
+            echo "has-missing=false" >> $GITHUB_OUTPUT
+            echo "missing=[]" >> $GITHUB_OUTPUT
+            echo "missing-count=0" >> $GITHUB_OUTPUT
+            echo "✅ **No missing releases found!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ""
+            echo "Found $MISSING_COUNT missing release(s):"
+            echo "$MISSING_RELEASES" | jq -r '.[] | "  - \(.database) \(.version) (missing: \(.missing_platforms))"'
+            echo "has-missing=true" >> $GITHUB_OUTPUT
+            echo "missing=$MISSING_RELEASES" >> $GITHUB_OUTPUT
+            echo "missing-count=$MISSING_COUNT" >> $GITHUB_OUTPUT
+
+            echo "### Missing Releases" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Database | Version | Missing Platforms |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|---------|-------------------|" >> $GITHUB_STEP_SUMMARY
+            echo "$MISSING_RELEASES" | jq -r '.[] | "| \(.database) | \(.version) | \(.missing_platforms) |"' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Trigger release workflows for each missing release
+  trigger-builds:
+    needs: find-missing
+    if: github.event.inputs.action == 'build-missing' && needs.find-missing.outputs.has-missing == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      triggered: ${{ steps.trigger.outputs.triggered }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        release: ${{ fromJson(needs.find-missing.outputs.missing) }}
+    steps:
+      - name: Trigger release workflow
+        id: trigger
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATABASE="${{ matrix.release.database }}"
+          VERSION="${{ matrix.release.version }}"
+          PLATFORMS="${{ matrix.release.platforms }}"
+
+          WORKFLOW="release-${DATABASE}.yml"
+
+          echo "Triggering $WORKFLOW for $DATABASE $VERSION ($PLATFORMS)..."
+
+          if gh workflow run "$WORKFLOW" \
+            --repo "${{ github.repository }}" \
+            --field "version=$VERSION" \
+            --field "platforms=$PLATFORMS"; then
+            echo "✓ Triggered $WORKFLOW for $DATABASE $VERSION"
+            echo "triggered=true" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Failed to trigger $WORKFLOW for $DATABASE $VERSION"
+            echo "triggered=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Delay between triggers to avoid rate limiting
+          sleep 5
+
+  # Wait for all triggered workflows to complete
+  wait-for-builds:
+    needs: [find-missing, trigger-builds]
+    if: github.event.inputs.action == 'build-missing' && needs.find-missing.outputs.has-missing == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for release workflows to complete
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## Waiting for Release Workflows" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          MISSING='${{ needs.find-missing.outputs.missing }}'
+          DATABASES=$(echo "$MISSING" | jq -r '.[].database' | sort -u)
+
+          # Wait up to 4 hours (builds can take a while)
+          MAX_WAIT=14400
+          POLL_INTERVAL=60
+          ELAPSED=0
+
+          echo "Waiting for release workflows to complete (timeout: ${MAX_WAIT}s)..."
+          echo ""
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            ALL_COMPLETE=true
+
+            for DB in $DATABASES; do
+              WORKFLOW="release-${DB}.yml"
+
+              # Check if any runs are in progress
+              RUNNING=$(gh run list \
+                --repo "${{ github.repository }}" \
+                --workflow "$WORKFLOW" \
+                --status in_progress \
+                --status queued \
+                --limit 1 \
+                --json status \
+                -q 'length')
+
+              if [ "$RUNNING" != "0" ]; then
+                echo "  $WORKFLOW: still running..."
+                ALL_COMPLETE=false
+              fi
+            done
+
+            if [ "$ALL_COMPLETE" = true ]; then
+              echo ""
+              echo "✓ All release workflows have completed"
+              break
+            fi
+
+            sleep $POLL_INTERVAL
+            ELAPSED=$((ELAPSED + POLL_INTERVAL))
+            echo "  Waited ${ELAPSED}s / ${MAX_WAIT}s..."
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "::warning::Timeout waiting for workflows to complete. Proceeding with finalization anyway."
+            echo "⚠️ **Warning:** Timeout waiting for workflows. Some may still be running." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ All release workflows completed." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Repair any missing checksums and update releases.json
+  finalize:
+    needs: [find-missing, trigger-builds, wait-for-builds]
+    if: always() && github.event.inputs.action == 'build-missing' && needs.find-missing.outputs.has-missing == 'true' && needs.trigger-builds.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Repair missing checksums
+        id: repair-checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## Repairing Checksums" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "Checking for releases with missing checksums..."
+
+          OUTPUT=$(pnpm tsx scripts/repair-checksums.ts 2>&1) || {
+            echo "::error::Failed to repair checksums"
+            echo "❌ **Failed to repair checksums:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$OUTPUT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
+
+          echo "$OUTPUT"
+
+          if echo "$OUTPUT" | grep -q "Fixed .* release"; then
+            FIXED_COUNT=$(echo "$OUTPUT" | grep -oP 'Fixed \K\d+')
+            echo "✅ Repaired checksums for **$FIXED_COUNT** release(s)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ All releases have complete checksums" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Reconcile releases.json
+        id: reconcile
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Reconciling releases.json" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "Reconciling releases.json with GitHub releases..."
+
+          OUTPUT=$(pnpm tsx scripts/reconcile-releases.ts 2>&1) || {
+            echo "::error::Failed to reconcile releases"
+            echo "❌ **Failed to reconcile releases.json:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$OUTPUT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
+
+          echo "$OUTPUT"
+
+          if echo "$OUTPUT" | grep -q "Added .* missing"; then
+            echo "✅ Updated releases.json with new releases" >> $GITHUB_STEP_SUMMARY
+          elif echo "$OUTPUT" | grep -q "in sync"; then
+            echo "✅ releases.json is already in sync" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ releases.json reconciled" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --quiet releases.json; then
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo ""
+            echo "Changes to releases.json:"
+            git diff --stat releases.json
+          fi
+
+      - name: Commit and push releases.json
+        if: steps.check-changes.outputs.has-changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add releases.json
+          git commit -m "chore: update releases.json after building missing releases"
+
+          # Retry push with rebase if remote has changed
+          for i in 1 2 3; do
+            if git push; then
+              echo "✓ Pushed releases.json update"
+              exit 0
+            fi
+            echo "Push failed, attempting rebase (attempt $i/3)..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "::error::Rebase failed due to conflicts"
+              git rebase --abort
+              exit 1
+            fi
+            sleep $((2**i))
+          done
+
+          echo "::error::Push failed after 3 attempts"
+          exit 1
+
+  # Final summary
+  summary:
+    needs: [find-missing, trigger-builds, wait-for-builds, finalize]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          ACTION="${{ github.event.inputs.action }}"
+          HAS_MISSING="${{ needs.find-missing.outputs.has-missing }}"
+          MISSING_COUNT="${{ needs.find-missing.outputs.missing-count }}"
+          TRIGGER_RESULT="${{ needs.trigger-builds.result }}"
+          WAIT_RESULT="${{ needs.wait-for-builds.result }}"
+          FINALIZE_RESULT="${{ needs.finalize.result }}"
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "## Final Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$HAS_MISSING" != "true" ]; then
+            echo "✅ **All releases are up to date!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No missing releases were found." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          if [ "$ACTION" = "check-only" ]; then
+            echo "ℹ️ **Check-only mode** - Found **$MISSING_COUNT** missing release(s)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Run this workflow again with \`build-missing\` to trigger builds." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          # Build mode - report results
+          echo "### Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$TRIGGER_RESULT" = "success" ]; then
+            echo "| Trigger Builds | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TRIGGER_RESULT" = "skipped" ]; then
+            echo "| Trigger Builds | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Trigger Builds | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$WAIT_RESULT" = "success" ]; then
+            echo "| Wait for Builds | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$WAIT_RESULT" = "skipped" ]; then
+            echo "| Wait for Builds | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Wait for Builds | ⚠️ Warning |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$FINALIZE_RESULT" = "success" ]; then
+            echo "| Finalize | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$FINALIZE_RESULT" = "skipped" ]; then
+            echo "| Finalize | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Finalize | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$FINALIZE_RESULT" = "success" ]; then
+            echo "✅ **Build process completed successfully!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- All missing releases have been built" >> $GITHUB_STEP_SUMMARY
+            echo "- Checksums have been verified/repaired" >> $GITHUB_STEP_SUMMARY
+            echo "- releases.json has been updated" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TRIGGER_RESULT" != "success" ]; then
+            echo "❌ **Build process failed during trigger phase**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+          elif [ "$FINALIZE_RESULT" != "success" ]; then
+            echo "⚠️ **Build process completed with warnings**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Builds were triggered but finalization may have had issues." >> $GITHUB_STEP_SUMMARY
+            echo "Check the workflow logs and run \`pnpm prep\` locally to verify." >> $GITHUB_STEP_SUMMARY
+          fi
+

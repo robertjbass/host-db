@@ -81,13 +81,13 @@
     },
     "clickhouse": {
       "displayName": "ClickHouse",
-      "description": "Column-oriented database for real-time analytics and big data processing",
+      "description": "Column-oriented database for real-time analytics and big data processing.",
       "type": "Analytical",
       "sourceRepo": "https://github.com/ClickHouse/ClickHouse",
       "license": "Apache-2.0",
       "commercialUse": true,
       "protocol": null,
-      "note": "Windows build is experimental (Cygwin); may require WSL for production use",
+      "note": "Windows binaries unavailable. Require WSL.",
       "latestLts": "25.12",
       "versions": {
         "25.12.3.21": true
@@ -96,8 +96,7 @@
         "linux-x64": true,
         "linux-arm64": true,
         "darwin-x64": true,
-        "darwin-arm64": true,
-        "win32-x64": true
+        "darwin-arm64": true
       },
       "cliTools": {
         "server": "clickhouse-server",
@@ -536,7 +535,8 @@
       "latestLts": "8.4",
       "versions": {
         "9.5.0": true,
-        "8.4.7": true,
+        "9.1.0": true,
+        "8.4.3": true,
         "8.0.40": true
       },
       "platforms": {

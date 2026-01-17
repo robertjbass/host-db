@@ -23,7 +23,7 @@ CLEAN=false
 CONFIGURE_ONLY=false
 # Use Windows home explicitly (MSYS2 $HOME is /home/Bob, not /c/Users/Bob)
 BUILD_DIR="/c/Users/$USER/clickhouse-build"
-OUTPUT_DIR="$(pwd)/dist"
+OUTPUT_DIR="$(pwd)/downloads"
 
 # Colors for output
 RED='\033[0;31m'
@@ -50,7 +50,7 @@ Options:
   --clean               Remove existing source and start fresh
   --configure-only      Only run cmake configure, don't build
   --build-dir <DIR>     Build directory (default: ./clickhouse-build)
-  --output-dir <DIR>    Output directory for artifacts (default: ./dist)
+  --output-dir <DIR>    Output directory for artifacts (default: ./downloads)
   --help                Show this help message
 
 The script automatically detects and reuses existing source code.
