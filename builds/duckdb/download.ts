@@ -19,6 +19,7 @@ import {
   existsSync,
   readFileSync,
   writeFileSync,
+  copyFileSync,
   readdirSync,
   rmSync,
   chmodSync,
@@ -208,8 +209,9 @@ async function calculateSha256(filePath: string): Promise<string> {
 }
 
 function verifyCommand(command: string): void {
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which'
   try {
-    execFileSync('which', [command], { stdio: 'pipe' })
+    execFileSync(whichCmd, [command], { stdio: 'pipe' })
   } catch {
     throw new Error(`Required command not found: ${command}`)
   }
@@ -226,11 +228,21 @@ async function extractGzip(sourcePath: string, destPath: string): Promise<void> 
 
 function extractZip(sourcePath: string, destDir: string): void {
   logInfo('Extracting zip archive...')
-  verifyCommand('unzip')
   mkdirSync(destDir, { recursive: true })
-  execFileSync('unzip', ['-q', '-o', sourcePath, '-d', destDir], {
-    stdio: 'inherit',
-  })
+
+  if (process.platform === 'win32') {
+    // Use PowerShell Expand-Archive on Windows
+    const psCommand = `Expand-Archive -Path '${sourcePath}' -DestinationPath '${destDir}' -Force`
+    execFileSync('powershell', ['-NoProfile', '-Command', psCommand], {
+      stdio: 'inherit',
+    })
+  } else {
+    // Use unzip on Unix
+    verifyCommand('unzip')
+    execFileSync('unzip', ['-q', '-o', sourcePath, '-d', destDir], {
+      stdio: 'inherit',
+    })
+  }
 }
 
 function repackage(
@@ -254,9 +266,7 @@ function repackage(
   const binaryName = platform.startsWith('win32') ? 'duckdb.exe' : 'duckdb'
   const destBinary = resolve(duckdbDir, binaryName)
 
-  // Read and write to copy (preserves mode)
-  const content = readFileSync(binaryPath)
-  writeFileSync(destBinary, content)
+  copyFileSync(binaryPath, destBinary)
   if (!platform.startsWith('win32')) {
     chmodSync(destBinary, 0o755)
   }

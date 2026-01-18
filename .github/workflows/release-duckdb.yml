@@ -130,7 +130,15 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum *.tar.gz *.zip 2>/dev/null > checksums.txt || sha256sum *.tar.gz > checksums.txt
+          shopt -s nullglob
+          TARBALLS=(*.tar.gz)
+          ZIPS=(*.zip)
+          FILES=("${TARBALLS[@]}" "${ZIPS[@]}")
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "ERROR: No archive files found"
+            exit 1
+          fi
+          sha256sum "${FILES[@]}" > checksums.txt
           cat checksums.txt
 
       - name: Upload artifacts
