@@ -130,6 +130,8 @@ export function checksumsFromPublishedPlatforms(
   const checksums: Record<string, string> = {}
 
   for (const asset of Object.values(platforms)) {
+    // Callers pass a Partial<Record<Platform, ...>>, so a hole is possible.
+    if (!asset) continue
     const filename = asset.url.split('/').pop()
     if (!filename) continue
     if (assetSizes[filename] !== asset.size) continue
