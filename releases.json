@@ -1327,10 +1327,30 @@
         "releaseTag": "postgresql-18.6.0",
         "releasedAt": "2026-08-25T23:44:46Z",
         "platforms": {
+          "darwin-arm64": {
+            "url": "https://registry.layerbase.host/postgresql-18.6.0/postgresql-18.6.0-darwin-arm64.tar.gz",
+            "sha256": "6e497d5cafb8796d723ba49b0a5f26ab99ba6cb892ccc5bb4d69b5f305fa7f30",
+            "size": 29267357
+          },
+          "darwin-x64": {
+            "url": "https://registry.layerbase.host/postgresql-18.6.0/postgresql-18.6.0-darwin-x64.tar.gz",
+            "sha256": "fc0494e77a0bedc7eb27a49cf0e160741d696ea8f8773bbcfeb1374ca5cec8c4",
+            "size": 29019130
+          },
+          "linux-arm64": {
+            "url": "https://registry.layerbase.host/postgresql-18.6.0/postgresql-18.6.0-linux-arm64.tar.gz",
+            "sha256": "b01260c126a882c89e8e43452fa97731f3be3d44026d6a725bed2105d2dab612",
+            "size": 12111299
+          },
           "linux-x64": {
             "url": "https://registry.layerbase.host/postgresql-18.6.0/postgresql-18.6.0-linux-x64.tar.gz",
             "sha256": "c4136806f89cb8bb9adcc981060c5eb30a721c07150c4b13e7d85c600847d0b9",
             "size": 12280612
+          },
+          "win32-x64": {
+            "url": "https://registry.layerbase.host/postgresql-18.6.0/postgresql-18.6.0-win32-x64.zip",
+            "sha256": "3339c9e7158d170dd72bb91a5feed2cdfa686d78bd9b38be865af7ef0508435f",
+            "size": 339149012
           }
         }
       },
@@ -1339,10 +1359,30 @@
         "releaseTag": "postgresql-18.4.0",
         "releasedAt": "2026-05-14T20:28:47Z",
         "platforms": {
+          "darwin-arm64": {
+            "url": "https://registry.layerbase.host/postgresql-18.4.0/postgresql-18.4.0-darwin-arm64.tar.gz",
+            "sha256": "40777aa8c5978f07ce3f19ef20dca165a987892b5f45675ea677f79d19b8e41c",
+            "size": 29243728
+          },
+          "darwin-x64": {
+            "url": "https://registry.layerbase.host/postgresql-18.4.0/postgresql-18.4.0-darwin-x64.tar.gz",
+            "sha256": "a479bd3e3c48a6973ce1cd09851d365b311db5c7104080f6f9a066cecd0d608e",
+            "size": 28990381
+          },
+          "linux-arm64": {
+            "url": "https://registry.layerbase.host/postgresql-18.4.0/postgresql-18.4.0-linux-arm64.tar.gz",
+            "sha256": "0c0d6582ba2e3759d6595333ea879c90c8e0cf610f3100031108715a8db38138",
+            "size": 12084465
+          },
           "linux-x64": {
             "url": "https://registry.layerbase.host/postgresql-18.4.0/postgresql-18.4.0-linux-x64.tar.gz",
             "sha256": "9f587cf1f686ae01202dfbb2259d6da84464bde3b82878f47814b8a5ae6704b6",
             "size": 12257076
+          },
+          "win32-x64": {
+            "url": "https://registry.layerbase.host/postgresql-18.4.0/postgresql-18.4.0-win32-x64.zip",
+            "sha256": "5a1d9a1004c9eb8ace37091c4e5e4de12e1acf1378e30fb45dd258717a7b9e82",
+            "size": 338204147
           }
         }
       },

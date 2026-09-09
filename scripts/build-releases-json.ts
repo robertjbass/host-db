@@ -20,7 +20,10 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseChecksums } from '../lib/checksums.js'
+import {
+  parseChecksums,
+  checksumsFromPublishedPlatforms,
+} from '../lib/checksums.js'
 import { getDownloadUrl } from '../lib/registry.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -304,6 +307,7 @@ async function buildVersionRelease(
   ghRelease: GitHubRelease,
   tag: string,
   version: string,
+  published?: VersionRelease,
 ): Promise<VersionRelease | null> {
   const checksumAsset = ghRelease.assets.find((a) => a.name === 'checksums.txt')
   if (!checksumAsset) {
@@ -311,10 +315,28 @@ async function buildVersionRelease(
     return null
   }
 
-  const checksums = await downloadChecksums(checksumAsset)
-  if (Object.keys(checksums).length === 0) {
+  const releaseChecksums = await downloadChecksums(checksumAsset)
+  if (Object.keys(releaseChecksums).length === 0) {
     console.warn(`  Warning: Failed to download checksums for ${tag}, skipping`)
     return null
+  }
+
+  // A release's checksums.txt is supposed to cover every asset on it. When it
+  // does not (a partial-platform re-release that overwrote the file), fall back
+  // to the checksum already published for that exact asset rather than dropping
+  // the platform from the manifest. The release's own lines always win.
+  const assetSizes: Record<string, number> = {}
+  for (const asset of ghRelease.assets) assetSizes[asset.name] = asset.size
+  const preserved = published
+    ? checksumsFromPublishedPlatforms(published.platforms, assetSizes)
+    : {}
+  const checksums = { ...preserved, ...releaseChecksums }
+  for (const name of Object.keys(checksums)) {
+    if (!(name in releaseChecksums) && name in assetSizes) {
+      console.warn(
+        `  Warning: ${tag} checksums.txt is missing ${name}; reusing the published checksum for the unchanged asset`,
+      )
+    }
   }
 
   const versionRelease: VersionRelease = {
@@ -358,6 +380,14 @@ async function main() {
     console.log('Dry-run mode: no files will be written\n')
   }
 
+  // The committed manifest is only read as a fallback for assets a release's
+  // checksums.txt fails to cover (see buildVersionRelease). Delete releases.json
+  // first if you want a genuinely from-scratch rebuild.
+  const publishedPath = resolve(ROOT_DIR, 'releases.json')
+  const published: ReleasesManifest | undefined = existsSync(publishedPath)
+    ? (JSON.parse(readFileSync(publishedPath, 'utf-8')) as ReleasesManifest)
+    : undefined
+
   // Fetch all GitHub releases
   const ghReleases = await fetchAllReleases()
 
@@ -387,7 +417,12 @@ async function main() {
           console.warn(`  Skipping unparseable tag: ${tag}`)
           return null
         }
-        const entry = await buildVersionRelease(ghRelease, tag, parsed.version)
+        const entry = await buildVersionRelease(
+          ghRelease,
+          tag,
+          parsed.version,
+          published?.databases?.[parsed.database]?.[parsed.version],
+        )
         if (!entry) return null
         return { database: parsed.database, version: parsed.version, entry }
       }),
