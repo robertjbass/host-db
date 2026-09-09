@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.42.1] - 2026-09-09
+
+### Fixed
+
+- **PostgreSQL binaries now ship the `uuid-ossp` extension.** `configure` never passed `--with-uuid`, so `contrib/uuid-ossp` was skipped silently at build time and `CREATE EXTENSION "uuid-ossp"` failed at runtime with `extension "uuid-ossp" is not available`. That is the first statement in most Supabase schema dumps and app migrations, so restores aborted partway through, leaving a half-populated database. Both build paths now configure with `--with-uuid=e2fs`: the Linux Dockerfile adds `uuid-dev` (build) and `libuuid1` (runtime, also present in the `ubuntu:24.04` cloud runtime image), and the macOS job needs no new Homebrew package because the Xcode SDK ships `uuid/uuid.h` and `uuid_generate` lives in libSystem.
+- **Both build paths now fail loudly if `uuid-ossp` is missing.** The Dockerfile asserts `lib/uuid-ossp.so` + `share/extension/uuid-ossp.control`, `build-local.sh` mirrors the same check (previously a warning-free silent pass), and the macOS workflow job errors on a missing `lib/uuid-ossp.so`.
+
+### Notes
+
+- Only our own source builds were affected. The `linux-arm64` entries sourced from Percona tarballs (`builds/postgresql/sources.json`: 17.11.0, 16.15.0, 15.19.0) already carried `uuid-ossp`, which is why the gap appeared on some platform/version pairs and not others.
+- **Existing published binaries are unchanged by this commit.** Fixing a customer requires re-running the PostgreSQL release workflow for the affected versions, and the shared binary store on each cloud box must be re-warmed afterwards - spindb treats an existing extracted directory as a cache hit and will not re-download over it.
+
 ## [0.42.0] - 2026-08-26
 
 ### Added

@@ -48,7 +48,27 @@ download` step of `.github/workflows/release-postgresql.yml`; keep them in sync.
 - Readline support (`--with-readline`)
 - XML support (`--with-libxml`, `--with-libxslt`)
 - ICU support (`--with-icu`)
-- All contrib modules (pg_stat_statements, etc.)
+- UUID support (`--with-uuid=e2fs`) - required for the `uuid-ossp` extension
+- All contrib modules (pg_stat_statements, uuid-ossp, etc.)
+
+**`uuid-ossp` is load-bearing, not optional.** `contrib/uuid-ossp` only compiles
+when `configure` ran with `--with-uuid=<lib>`; without it `make install` skips
+the module silently and `CREATE EXTENSION "uuid-ossp"` fails at runtime with
+`extension "uuid-ossp" is not available`. Supabase schema dumps and most app
+migrations open with that statement, so a binary missing it breaks restores
+partway through. Both the Dockerfile and the macOS workflow job now assert
+`lib/uuid-ossp.so` (plus `share/extension/uuid-ossp.control` on Linux) exists
+before publishing, and `build-local.sh` fails on the same check.
+
+**Linux uses `e2fs` (libuuid, `uuid-dev` at build time, `libuuid1` at runtime);
+macOS uses the same `e2fs` option** - the Apple SDK ships `uuid/uuid.h` and
+`uuid_generate` lives in libSystem, so no extra Homebrew package is needed.
+
+> **Note on `linux-arm64`:** the versions sourced from Percona tarballs rather
+> than built here (`sources.json`: 17.11.0, 16.15.0, 15.19.0) already shipped
+> `uuid-ossp`, because Percona configures it in. Only our own source builds were
+> missing it, which is why the gap showed up on some platform/version pairs and
+> not others.
 
 ### EnterpriseDB Windows Binaries
 
@@ -167,7 +187,12 @@ The Dockerfile installs these dependencies on Ubuntu 22.04:
 - build-essential, flex, bison
 - libreadline-dev, libssl-dev, zlib1g-dev
 - libxml2-dev, libxslt1-dev, libicu-dev
+- uuid-dev (required for `--with-uuid=e2fs` / the `uuid-ossp` extension)
 - pkg-config
+
+The packaging stage additionally installs `libuuid1`, the runtime library
+`uuid-ossp.so` links against. It is present in the `ubuntu:24.04` runtime image
+too, so no consumer change is needed.
 
 ### macOS (Native)
 
@@ -175,6 +200,9 @@ GitHub Actions installs via Homebrew:
 - openssl@3, readline
 - libxml2, libxslt
 - icu4c, pkg-config
+
+No Homebrew package is needed for `--with-uuid=e2fs` on macOS: the Xcode SDK
+provides `uuid/uuid.h` and `uuid_generate` is in libSystem.
 
 The macOS builds include the Xcode SDK fix for Xcode 16+ to prevent header conflicts.
 
