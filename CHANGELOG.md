@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 - Only our own source builds were affected. The `linux-arm64` entries sourced from Percona tarballs (`builds/postgresql/sources.json`: 17.11.0, 16.15.0, 15.19.0) already carried `uuid-ossp`, which is why the gap appeared on some platform/version pairs and not others.
 - **Existing published binaries are unchanged by this commit.** Fixing a customer requires re-running the PostgreSQL release workflow for the affected versions, and the shared binary store on each cloud box must be re-warmed afterwards - spindb treats an existing extracted directory as a cache hit and will not re-download over it.
 
+## [0.42.1] - 2026-09-09
+
+### Fixed
+
+- **PostgreSQL 18.6.0 and 18.4.0 `linux-x64` binaries are rebuilt with `uuid-ossp`** (`--with-uuid=e2fs`), so `CREATE EXTENSION "uuid-ossp"` works on those versions. The other four platforms are unchanged.
+- **A partial-platform re-release no longer drops the platforms it did not build from `releases.json`.** `softprops/action-gh-release` REPLACES a release's `checksums.txt` rather than merging into it, and `build-releases-json.ts` skips any release asset with no checksum line - so a `platforms: linux-x64` dispatch reduced 18.6.0 and 18.4.0 to a single platform in the manifest even though every tarball was still on the release and in R2. Every `release-<engine>.yml` now merges the release's existing checksums first (`builds/common/merge-release-checksums.sh`), and `build-releases-json.ts` falls back to the already-published checksum for any asset a `checksums.txt` fails to cover, guarded on the asset size being unchanged.
+- **Back-to-back release dispatches for different versions no longer cancel each other.** GitHub keeps only one pending run per concurrency group, so the shared `release-<engine>` group evicted every queued duplicate but the last. The group now includes the version input; `update-releases` carries its own repo-wide `hostdb-releases-manifest` group because it commits the shared `releases.json`.
+
 ## [0.42.0] - 2026-08-26
 
 ### Added

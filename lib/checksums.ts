@@ -96,3 +96,45 @@ export async function fetchChecksums(
 
   return {}
 }
+
+type PublishedAsset = {
+  url: string
+  sha256: string
+  size: number
+}
+
+/**
+ * Rebuild a `filename -> sha256` map from a version's already-published
+ * platform map, keeping ONLY entries whose asset is still byte-for-byte the one
+ * attached to the release (same filename, same size).
+ *
+ * Second line of defense behind builds/common/merge-release-checksums.sh. A
+ * partial-platform re-release used to overwrite a release's checksums.txt with
+ * just the platforms it rebuilt; build-releases-json.ts skips any asset with no
+ * checksum line, so those versions lost their other platforms in releases.json
+ * (postgresql 18.6.0 / 18.4.0, 2026-09-09). If a checksums.txt ever comes back
+ * incomplete again, these preserved entries fill the gaps instead of the
+ * manifest silently shedding platforms.
+ *
+ * The size guard is what makes this safe: an asset that was actually re-uploaded
+ * has a different size, so its stale checksum is never carried forward - it is
+ * dropped and reported as missing exactly as before.
+ *
+ * @param platforms - the version's platform map from the committed releases.json
+ * @param assetSizes - `filename -> size` for the assets currently on the release
+ */
+export function checksumsFromPublishedPlatforms(
+  platforms: Record<string, PublishedAsset>,
+  assetSizes: Record<string, number>,
+): Record<string, string> {
+  const checksums: Record<string, string> = {}
+
+  for (const asset of Object.values(platforms)) {
+    const filename = asset.url.split('/').pop()
+    if (!filename) continue
+    if (assetSizes[filename] !== asset.size) continue
+    checksums[filename] = asset.sha256
+  }
+
+  return checksums
+}

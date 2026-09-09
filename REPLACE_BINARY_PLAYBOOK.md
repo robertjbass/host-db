@@ -48,6 +48,27 @@ shasum -a 256 /tmp/x.tar.gz   # compare to: shasum -a 256 ./dist/mysql-8.4.9-lin
 - **`_backup/` objects are orphans** by `audit:r2-orphans`' definition (not referenced by `releases.json`). Do not run `pnpm audit:r2-orphans --delete` while you rely on them for rollback.
 - This path leaves `releases.json` and the GitHub release asset **stale** (still labeled as the old binary). It is cosmetic - nothing reads size/sha for downloads - but to reconcile, run the engine release workflow (`release-<engine>.yml`); it rebuilds + updates the GitHub releases + R2 + regenerates `releases.json`.
 
+## Re-releasing a single platform via the release workflow
+
+Dispatching `release-<engine>.yml` with a single `platforms` value is the clean
+way to reship one platform: it rebuilds the tarball, uploads it to the GitHub
+release and R2, and regenerates `releases.json`. Two things make that safe, both
+added 2026-09-09 after a partial postgresql re-release dropped four platforms:
+
+- The release job runs `builds/common/merge-release-checksums.sh` before
+  creating the release, merging the release's existing `checksums.txt` under the
+  freshly built one. `releases.json` is derived from `checksums.txt` - an asset
+  with no checksum line is skipped - so without the merge the version's
+  `platforms` map shrinks to whatever the run happened to build.
+- Concurrency is keyed per version, so dispatches for different versions queue
+  independently. Only `update-releases` is serialized repo-wide, since it
+  commits the shared `releases.json`.
+
+If a `releases.json` entry ever does lose platforms, do not hand-edit it. Restore
+the release's full `checksums.txt` (`gh release upload <tag> checksums.txt
+--clobber`) and re-run `pnpm build:releases`, then diff against the last good
+commit to confirm only the intended sha/size changed.
+
 ## The "proper" full path (consistent from the start)
 
 Per the publish-cascade coordination rules: edit `sources.json` + bump `package.json` -> run the release workflow (updates GitHub releases + R2 + commits a correct `releases.json`) -> merge -> `publish.yml` publishes. This avoids the stale-label residue entirely, at the cost of rebuilding all platforms. Use the direct-replace path above to ship + verify fast; use the release workflow when you want a clean, fully-labeled release.

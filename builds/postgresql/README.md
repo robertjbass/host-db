@@ -144,6 +144,21 @@ The release workflow builds all platforms in parallel:
 2. Select version and platforms (default: all)
 3. Click "Run workflow"
 
+### Partial-platform re-releases
+
+Picking a single platform (e.g. `linux-x64`) rebuilds and re-uploads only that
+tarball. The release job merges the release's existing `checksums.txt` under the
+freshly built one (`builds/common/merge-release-checksums.sh`), so the platforms
+you did not rebuild keep their checksums and stay in `releases.json`.
+
+Concurrency is per version (`release-postgresql-<version>`), so back-to-back
+dispatches for different versions queue independently rather than evicting each
+other - GitHub keeps only ONE pending run per concurrency group, so a shared
+group silently cancelled every queued duplicate but the last. The
+`update-releases` job carries its own repo-wide `hostdb-releases-manifest` group
+because `releases.json` is a single shared file committed to `main` and pushed
+to R2. Dispatching the SAME version twice still queues behind itself.
+
 | Platform | Runner | Build Type |
 |----------|--------|------------|
 | linux-x64 | ubuntu-latest | Docker source build |

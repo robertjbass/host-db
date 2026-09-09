@@ -27,7 +27,7 @@ on:
 
 # Prevent concurrent runs that could conflict when updating releases.json
 concurrency:
-  group: release-duckdb
+  group: release-duckdb-${{ github.event.inputs.version }}
   cancel-in-progress: false
 
 jobs:
@@ -196,6 +196,18 @@ jobs:
           chmod +x builds/common/check-platform-coverage.sh
           ./builds/common/check-platform-coverage.sh duckdb "${{ github.event.inputs.version }}" "${{ github.event.inputs.platforms }}" ./release-assets
 
+      # A partial-platform dispatch (platforms != all) only rebuilds the
+      # checksums for what it built, and action-gh-release REPLACES the
+      # release's checksums.txt rather than merging. releases.json is derived
+      # from checksums.txt, so an unmerged partial upload silently drops every
+      # platform this run did not touch. Merge the existing lines back in first.
+      - name: Merge existing release checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x builds/common/merge-release-checksums.sh
+          ./builds/common/merge-release-checksums.sh "duckdb-${{ github.event.inputs.version }}" ./release-assets/checksums.txt
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -253,6 +265,12 @@ jobs:
 
   update-releases:
     needs: upload-to-r2
+    # releases.json is one shared file committed to main and pushed to R2,
+    # so this job must never run twice at once even though the builds above
+    # are now free to run in parallel per version.
+    concurrency:
+      group: hostdb-releases-manifest
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       contents: write
