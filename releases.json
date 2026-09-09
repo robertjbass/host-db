@@ -1472,8 +1472,8 @@
           },
           "linux-x64": {
             "url": "https://registry.layerbase.host/postgresql-17.10.0/postgresql-17.10.0-linux-x64.tar.gz",
-            "sha256": "9e682a9e827a822b5b6023f85381c778885ced3e3ee1d090219e6b33e87585d7",
-            "size": 11842249
+            "sha256": "36a05836ea7673544f2aef12d204d7cb326f4af142ab0d570556e3554a47bc1f",
+            "size": 11848735
           },
           "win32-x64": {
             "url": "https://registry.layerbase.host/postgresql-17.10.0/postgresql-17.10.0-win32-x64.zip",
