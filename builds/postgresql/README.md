@@ -157,7 +157,14 @@ other - GitHub keeps only ONE pending run per concurrency group, so a shared
 group silently cancelled every queued duplicate but the last. The
 `update-releases` job carries its own repo-wide `hostdb-releases-manifest` group
 because `releases.json` is a single shared file committed to `main` and pushed
-to R2. Dispatching the SAME version twice still queues behind itself.
+to R2 and each run rebuilds the whole manifest. Dispatching the SAME version
+twice still queues behind itself.
+
+A group holds only one PENDING entry, so a third simultaneous manifest job would
+be evicted - deliberately, because an evicted job leaves a version missing from
+`releases.json`, which `publish.yml`'s drift gate catches before anything ships
+and one `rebuild-releases.yml` dispatch repairs. The race it prevents silently
+reverts an already-published version with nothing to catch it.
 
 | Platform | Runner | Build Type |
 |----------|--------|------------|

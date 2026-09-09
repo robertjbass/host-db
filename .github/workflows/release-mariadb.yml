@@ -513,9 +513,17 @@ jobs:
 
   update-releases:
     needs: upload-to-r2
-    # releases.json is one shared file committed to main and pushed to R2,
-    # so this job must never run twice at once even though the builds above
-    # are now free to run in parallel per version.
+    # releases.json is one shared file committed to main and pushed to R2, and
+    # each run rebuilds the WHOLE manifest, so two of these at once is
+    # last-writer-wins: the loser's version silently disappears from the
+    # manifest. Serialize repo-wide across every engine.
+    #
+    # Trade-off: GitHub keeps only one PENDING entry per group, so a third
+    # simultaneous manifest job would be evicted. That is the strictly better
+    # failure: an evicted job leaves a version missing from releases.json, which
+    # publish.yml's drift gate catches before anything ships and one
+    # rebuild-releases.yml dispatch repairs, whereas the race it prevents
+    # silently reverts an already-published version with nothing to catch it.
     concurrency:
       group: hostdb-releases-manifest
       cancel-in-progress: false
