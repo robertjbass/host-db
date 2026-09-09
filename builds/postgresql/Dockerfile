@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev \
     libxslt1-dev \
     libicu-dev \
+    uuid-dev \
     pkg-config \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -61,6 +62,7 @@ WORKDIR /build/postgresql-src
 # - Enable readline for psql history/editing
 # - Enable XML support for XML functions
 # - Enable ICU for internationalization
+# - Enable UUID (e2fs/libuuid) so contrib builds the uuid-ossp extension
 # - Use $ORIGIN-relative RPATH for relocatable binaries (not hardcoded /opt/postgresql/lib)
 RUN ./configure \
     --prefix=/opt/postgresql \
@@ -69,6 +71,7 @@ RUN ./configure \
     --with-libxml \
     --with-libxslt \
     --with-icu \
+    --with-uuid=e2fs \
     --without-systemd \
     LDFLAGS="-Wl,-rpath,'\$\$ORIGIN/../lib'"
 
@@ -97,6 +100,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxslt1.1 \
     libicu70 \
     zlib1g \
+    libuuid1 \
     patchelf \
     file \
     && rm -rf /var/lib/apt/lists/*
@@ -137,6 +141,12 @@ RUN test -f /opt/postgresql/bin/postgres \
 # Verify contrib modules are installed
 RUN test -f /opt/postgresql/lib/pg_stat_statements.so \
     && echo "Contrib modules verification passed"
+
+# Verify uuid-ossp is present (requires --with-uuid=e2fs at configure time)
+# Without this the extension silently goes missing and CREATE EXTENSION "uuid-ossp" fails
+RUN test -f /opt/postgresql/lib/uuid-ossp.so \
+    && test -f /opt/postgresql/share/extension/uuid-ossp.control \
+    && echo "uuid-ossp verification passed"
 
 # =============================================================================
 # Stage 3: Export (scratch image for minimal output)

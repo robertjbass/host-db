@@ -200,6 +200,17 @@ else
     log_warn "pg_stat_statements contrib module not found"
 fi
 
+# uuid-ossp is a hard requirement: Supabase and most app schemas call
+# CREATE EXTENSION "uuid-ossp". It only builds when configure ran with
+# --with-uuid=e2fs, so a missing file means a silently broken binary.
+if [[ -f "${OUTPUT_PATH}/postgresql/lib/uuid-ossp.so" && -f "${OUTPUT_PATH}/postgresql/share/extension/uuid-ossp.control" ]]; then
+    log_success "uuid-ossp extension found"
+else
+    log_error "uuid-ossp extension NOT found (lib/uuid-ossp.so + share/extension/uuid-ossp.control)"
+    log_error "Check that configure ran with --with-uuid=e2fs and uuid-dev was installed"
+    exit 1
+fi
+
 # Create tarball
 TARBALL="${OUTPUT_DIR}/postgresql-${VERSION}-${PLATFORM}.tar.gz"
 log_info "Creating tarball: ${TARBALL}"
